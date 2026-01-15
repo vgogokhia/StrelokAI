@@ -263,11 +263,11 @@ with col2:
     wind_dir_deg = st.slider("Direction (°)", 0, 360, int(st.session_state.wind_dir_deg), 15)
     st.session_state.wind_dir_deg = wind_dir_deg
     
-    # Phone compass button (works on HTTPS with device sensor)
+    # Phone compass button - captures ONE reading then stops
     import streamlit.components.v1 as components
     components.html("""
     <div style="font-family: sans-serif;">
-        <button onclick="getCompass()" style="
+        <button id="btn" onclick="getCompass()" style="
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             color: #4CAF50; 
             border: 1px solid #4CAF50; 
@@ -277,13 +277,15 @@ with col2:
             width: 100%;
             font-size: 16px;
             margin-bottom: 8px;
-        ">🧭 Get Phone Compass</button>
+        ">🧭 Get Compass</button>
         <div id="result" style="padding: 10px; background: #1a1a2e; border-radius: 8px; text-align: center;">
-            <span id="deg" style="font-size: 24px; color: #4CAF50; font-weight: bold;">--°</span>
-            <span id="dir" style="color: #aaa; margin-left: 8px;">Tap button</span>
+            <span id="deg" style="font-size: 28px; color: #4CAF50; font-weight: bold;">--°</span>
+            <span id="dir" style="color: #aaa; margin-left: 8px; font-size: 16px;">Tap button</span>
         </div>
+        <p style="color: #666; font-size: 12px; margin-top: 5px; text-align: center;">Copy the degree value to input below ↓</p>
     </div>
     <script>
+    let captured = false;
     function getDir(d) {
         if (d >= 337.5 || d < 22.5) return 'North';
         if (d < 67.5) return 'NE';
@@ -294,38 +296,43 @@ with col2:
         if (d < 292.5) return 'West';
         return 'NW';
     }
-    function update(h) {
-        h = Math.round(h);
-        document.getElementById('deg').innerHTML = h + '°';
-        document.getElementById('dir').innerHTML = getDir(h);
+    function capture(h) {
+        if (!captured) {
+            captured = true;
+            h = Math.round(h);
+            document.getElementById('deg').innerHTML = h + '°';
+            document.getElementById('dir').innerHTML = getDir(h) + ' ✓';
+            document.getElementById('btn').innerHTML = '🧭 ' + h + '° ' + getDir(h);
+            document.getElementById('btn').style.background = '#0f5132';
+        }
     }
     function getCompass() {
+        captured = false;
         document.getElementById('dir').innerHTML = 'Reading...';
+        document.getElementById('btn').innerHTML = '🧭 Reading...';
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             DeviceOrientationEvent.requestPermission().then(r => {
-                if (r === 'granted') window.addEventListener('deviceorientation', e => { if(e.alpha) update(e.alpha); });
-                else document.getElementById('dir').innerHTML = 'Denied';
+                if (r === 'granted') {
+                    window.addEventListener('deviceorientation', function handler(e) {
+                        if (e.alpha && !captured) { capture(e.alpha); }
+                    });
+                } else { document.getElementById('dir').innerHTML = 'Denied'; }
             }).catch(() => document.getElementById('dir').innerHTML = 'Error');
         } else if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', e => { if(e.alpha) update(e.alpha); });
+            window.addEventListener('deviceorientation', function handler(e) {
+                if (e.alpha && !captured) { capture(e.alpha); }
+            });
         } else {
             document.getElementById('dir').innerHTML = 'Not available';
         }
     }
     </script>
-    """, height=100)
+    """, height=130)
     
-    # Quick heading buttons (backup)
-    st.caption("Or tap direction:")
-    dir_cols = st.columns(4)
-    directions = [("N", 0), ("E", 90), ("S", 180), ("W", 270)]
-    for i, (name, deg) in enumerate(directions):
-        if dir_cols[i].button(name, key=f"dir_{name}", use_container_width=True):
-            st.session_state.compass_heading = deg
-            st.rerun()
-    
-    # Manual heading input
-    compass_heading = st.number_input("Manual (°)", 0, 360, int(st.session_state.compass_heading), 15)
+    # Manual heading input only
+    compass_heading = st.number_input("Enter heading (°)", 0, 360, int(st.session_state.compass_heading), 1,
+                                      help="Copy the compass value above, or type manually")
+    st.session_state.compass_heading = compass_heading
     
     # Calculate relative wind if heading is set
     if compass_heading > 0:

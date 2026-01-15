@@ -273,72 +273,68 @@ with col2:
     wind_dir_deg = st.slider("Direction (°)", 0, 360, int(st.session_state.wind_dir_deg), 15)
     st.session_state.wind_dir_deg = wind_dir_deg
     
-    # Phone compass button - captures ONE reading then auto-updates
+    # Phone compass - auto updates on click
     import streamlit.components.v1 as components
+    
+    # Show current heading if set
+    if st.session_state.compass_heading > 0:
+        st.success(f"🧭 Heading: **{int(st.session_state.compass_heading)}°**")
+    
     components.html("""
-    <div style="font-family: sans-serif;">
-        <button id="btn" onclick="getCompass()" style="
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    <div style="font-family: sans-serif; text-align: center;">
+        <button onclick="getCompass()" style="
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f5132 100%);
             color: #4CAF50; 
-            border: 1px solid #4CAF50; 
-            padding: 12px; 
-            border-radius: 8px; 
+            border: 2px solid #4CAF50; 
+            padding: 15px; 
+            border-radius: 10px; 
             cursor: pointer;
+            font-size: 18px;
             width: 100%;
-            font-size: 16px;
-        ">🧭 Get Compass</button>
-        <div id="status" style="padding: 8px; color: #aaa; text-align: center;">Tap to get your heading</div>
+        ">🧭 GET COMPASS</button>
+        <div id="status" style="margin-top: 10px; color: #888;">Tap to get heading</div>
     </div>
     <script>
-    let captured = false;
+    let done = false;
     function getDir(d) {
-        if (d >= 337.5 || d < 22.5) return 'North';
+        if (d >= 337.5 || d < 22.5) return 'N';
         if (d < 67.5) return 'NE';
-        if (d < 112.5) return 'East';
+        if (d < 112.5) return 'E';
         if (d < 157.5) return 'SE';
-        if (d < 202.5) return 'South';
+        if (d < 202.5) return 'S';
         if (d < 247.5) return 'SW';
-        if (d < 292.5) return 'West';
+        if (d < 292.5) return 'W';
         return 'NW';
     }
-    function capture(h) {
-        if (!captured) {
-            captured = true;
+    function update(h) {
+        if (!done) {
+            done = true;
             h = Math.round(h);
-            document.getElementById('status').innerHTML = '✓ ' + h + '° ' + getDir(h) + ' - Reloading...';
-            document.getElementById('btn').style.background = '#0f5132';
-            // Use top.location to break out of iframe
-            setTimeout(function() {
-                window.top.location.href = window.top.location.origin + window.top.location.pathname + '?heading=' + h;
-            }, 500);
+            document.getElementById('status').innerHTML = '✓ ' + h + '° (' + getDir(h) + ') - Updating page...';
+            // Full absolute URL redirect
+            window.top.location.replace('https://strelokai.streamlit.app/?heading=' + h);
         }
     }
     function getCompass() {
-        captured = false;
-        document.getElementById('status').innerHTML = 'Reading...';
+        done = false;
+        document.getElementById('status').innerHTML = 'Reading compass...';
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             DeviceOrientationEvent.requestPermission().then(r => {
                 if (r === 'granted') {
-                    window.addEventListener('deviceorientation', function(e) {
-                        if (e.alpha && !captured) capture(e.alpha);
-                    });
-                } else { document.getElementById('status').innerHTML = 'Permission denied'; }
-            }).catch(() => document.getElementById('status').innerHTML = 'Error');
-        } else if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', function(e) {
-                if (e.alpha && !captured) capture(e.alpha);
+                    window.addEventListener('deviceorientation', e => { if(e.alpha) update(e.alpha); }, {once: true});
+                } else { document.getElementById('status').innerHTML = 'Denied'; }
             });
+        } else if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', e => { if(e.alpha) update(e.alpha); }, {once: true});
         } else {
             document.getElementById('status').innerHTML = 'Not available';
         }
     }
     </script>
-    """, height=80)
+    """, height=100)
     
-    # Manual heading input only
-    compass_heading = st.number_input("Enter heading (°)", 0, 360, int(st.session_state.compass_heading), 1,
-                                      help="Copy the compass value above, or type manually")
-    st.session_state.compass_heading = compass_heading
+    # Use session state heading for wind calculation
+    compass_heading = st.session_state.compass_heading
     
     # Calculate relative wind if heading is set
     if compass_heading > 0:

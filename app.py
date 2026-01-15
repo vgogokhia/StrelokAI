@@ -263,8 +263,60 @@ with col2:
     wind_dir_deg = st.slider("Direction (°)", 0, 360, int(st.session_state.wind_dir_deg), 15)
     st.session_state.wind_dir_deg = wind_dir_deg
     
-    # Quick heading buttons (works without phone sensors)
-    st.caption("🧭 Your aiming direction:")
+    # Phone compass button (works on HTTPS with device sensor)
+    import streamlit.components.v1 as components
+    components.html("""
+    <div style="font-family: sans-serif;">
+        <button onclick="getCompass()" style="
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #4CAF50; 
+            border: 1px solid #4CAF50; 
+            padding: 12px; 
+            border-radius: 8px; 
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            margin-bottom: 8px;
+        ">🧭 Get Phone Compass</button>
+        <div id="result" style="padding: 10px; background: #1a1a2e; border-radius: 8px; text-align: center;">
+            <span id="deg" style="font-size: 24px; color: #4CAF50; font-weight: bold;">--°</span>
+            <span id="dir" style="color: #aaa; margin-left: 8px;">Tap button</span>
+        </div>
+    </div>
+    <script>
+    function getDir(d) {
+        if (d >= 337.5 || d < 22.5) return 'North';
+        if (d < 67.5) return 'NE';
+        if (d < 112.5) return 'East';
+        if (d < 157.5) return 'SE';
+        if (d < 202.5) return 'South';
+        if (d < 247.5) return 'SW';
+        if (d < 292.5) return 'West';
+        return 'NW';
+    }
+    function update(h) {
+        h = Math.round(h);
+        document.getElementById('deg').innerHTML = h + '°';
+        document.getElementById('dir').innerHTML = getDir(h);
+    }
+    function getCompass() {
+        document.getElementById('dir').innerHTML = 'Reading...';
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission().then(r => {
+                if (r === 'granted') window.addEventListener('deviceorientation', e => { if(e.alpha) update(e.alpha); });
+                else document.getElementById('dir').innerHTML = 'Denied';
+            }).catch(() => document.getElementById('dir').innerHTML = 'Error');
+        } else if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', e => { if(e.alpha) update(e.alpha); });
+        } else {
+            document.getElementById('dir').innerHTML = 'Not available';
+        }
+    }
+    </script>
+    """, height=100)
+    
+    # Quick heading buttons (backup)
+    st.caption("Or tap direction:")
     dir_cols = st.columns(4)
     directions = [("N", 0), ("E", 90), ("S", 180), ("W", 270)]
     for i, (name, deg) in enumerate(directions):
@@ -272,15 +324,8 @@ with col2:
             st.session_state.compass_heading = deg
             st.rerun()
     
-    # Show current heading
-    heading_names = {0: "North", 90: "East", 180: "South", 270: "West"}
-    current_dir = heading_names.get(int(st.session_state.compass_heading), f"{int(st.session_state.compass_heading)}°")
-    st.markdown(f"**Heading: {current_dir}**")
-    
-    # Manual heading input (user can type if compass doesn't work)
-    compass_heading = st.number_input("Or enter manually (°)", 0, 360, int(st.session_state.compass_heading), 15,
-                                      help="0°=North, 90°=East, 180°=South, 270°=West")
-    st.session_state.compass_heading = compass_heading
+    # Manual heading input
+    compass_heading = st.number_input("Manual (°)", 0, 360, int(st.session_state.compass_heading), 15)
     
     # Calculate relative wind if heading is set
     if compass_heading > 0:

@@ -138,6 +138,16 @@ if "compass_heading" not in st.session_state:
 if "use_compass" not in st.session_state:
     st.session_state.use_compass = False
 
+# Check for compass heading from URL query param
+query_params = st.query_params
+if "heading" in query_params:
+    try:
+        new_heading = int(query_params["heading"])
+        st.session_state.compass_heading = new_heading
+        st.query_params.clear()  # Clear the param after reading
+    except:
+        pass
+
 # Apply theme
 apply_theme(st.session_state.theme)
 
@@ -276,13 +286,8 @@ with col2:
             cursor: pointer;
             width: 100%;
             font-size: 16px;
-            margin-bottom: 8px;
         ">🧭 Get Compass</button>
-        <div id="result" style="padding: 10px; background: #1a1a2e; border-radius: 8px; text-align: center;">
-            <span id="deg" style="font-size: 28px; color: #4CAF50; font-weight: bold;">--°</span>
-            <span id="dir" style="color: #aaa; margin-left: 8px; font-size: 16px;">Tap button</span>
-        </div>
-        <p style="color: #666; font-size: 12px; margin-top: 5px; text-align: center;">Copy the degree value to input below ↓</p>
+        <div id="status" style="padding: 8px; color: #aaa; text-align: center;">Tap to get your heading</div>
     </div>
     <script>
     let captured = false;
@@ -300,34 +305,32 @@ with col2:
         if (!captured) {
             captured = true;
             h = Math.round(h);
-            document.getElementById('deg').innerHTML = h + '°';
-            document.getElementById('dir').innerHTML = getDir(h) + ' ✓';
-            document.getElementById('btn').innerHTML = '🧭 ' + h + '° ' + getDir(h);
-            document.getElementById('btn').style.background = '#0f5132';
+            document.getElementById('status').innerHTML = 'Captured: ' + h + '° ' + getDir(h) + ' - Updating...';
+            // Redirect parent page with heading param
+            window.parent.location.href = window.parent.location.pathname + '?heading=' + h;
         }
     }
     function getCompass() {
         captured = false;
-        document.getElementById('dir').innerHTML = 'Reading...';
-        document.getElementById('btn').innerHTML = '🧭 Reading...';
+        document.getElementById('status').innerHTML = 'Reading compass...';
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             DeviceOrientationEvent.requestPermission().then(r => {
                 if (r === 'granted') {
-                    window.addEventListener('deviceorientation', function handler(e) {
-                        if (e.alpha && !captured) { capture(e.alpha); }
+                    window.addEventListener('deviceorientation', function(e) {
+                        if (e.alpha && !captured) capture(e.alpha);
                     });
-                } else { document.getElementById('dir').innerHTML = 'Denied'; }
-            }).catch(() => document.getElementById('dir').innerHTML = 'Error');
+                } else { document.getElementById('status').innerHTML = 'Permission denied'; }
+            }).catch(() => document.getElementById('status').innerHTML = 'Error');
         } else if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', function handler(e) {
-                if (e.alpha && !captured) { capture(e.alpha); }
+            window.addEventListener('deviceorientation', function(e) {
+                if (e.alpha && !captured) capture(e.alpha);
             });
         } else {
-            document.getElementById('dir').innerHTML = 'Not available';
+            document.getElementById('status').innerHTML = 'Compass not available on this device';
         }
     }
     </script>
-    """, height=130)
+    """, height=80)
     
     # Manual heading input only
     compass_heading = st.number_input("Enter heading (°)", 0, 360, int(st.session_state.compass_heading), 1,

@@ -273,7 +273,7 @@ with col2:
     wind_dir_deg = st.slider("Direction (°)", 0, 360, int(st.session_state.wind_dir_deg), 15)
     st.session_state.wind_dir_deg = wind_dir_deg
     
-    # Phone compass button - captures ONE reading then stops
+    # Phone compass button - captures ONE reading then auto-updates
     import streamlit.components.v1 as components
     components.html("""
     <div style="font-family: sans-serif;">
@@ -305,14 +305,17 @@ with col2:
         if (!captured) {
             captured = true;
             h = Math.round(h);
-            document.getElementById('status').innerHTML = 'Captured: ' + h + '° ' + getDir(h) + ' - Updating...';
-            // Redirect parent page with heading param
-            window.parent.location.href = window.parent.location.pathname + '?heading=' + h;
+            document.getElementById('status').innerHTML = '✓ ' + h + '° ' + getDir(h) + ' - Reloading...';
+            document.getElementById('btn').style.background = '#0f5132';
+            // Use top.location to break out of iframe
+            setTimeout(function() {
+                window.top.location.href = window.top.location.origin + window.top.location.pathname + '?heading=' + h;
+            }, 500);
         }
     }
     function getCompass() {
         captured = false;
-        document.getElementById('status').innerHTML = 'Reading compass...';
+        document.getElementById('status').innerHTML = 'Reading...';
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             DeviceOrientationEvent.requestPermission().then(r => {
                 if (r === 'granted') {
@@ -326,7 +329,7 @@ with col2:
                 if (e.alpha && !captured) capture(e.alpha);
             });
         } else {
-            document.getElementById('status').innerHTML = 'Compass not available on this device';
+            document.getElementById('status').innerHTML = 'Not available';
         }
     }
     </script>

@@ -152,7 +152,7 @@ if "heading" in query_params:
 apply_theme(st.session_state.theme)
 
 # Header - compact for mobile
-st.markdown(f"**🎯 {APP_NAME}** | Ballistic Calculator")
+st.markdown(f"**🎯 {APP_NAME}** | Ballistic Calculator |")
 
 
 # Sidebar - Settings

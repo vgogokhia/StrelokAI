@@ -19,6 +19,11 @@ from config import (
     APP_NAME, VERSION, DEFAULT_LATITUDE, DEFAULT_LONGITUDE,
     STANDARD_ATMOSPHERE
 )
+from auth import create_user, authenticate_user, user_exists
+from profiles import (
+    RifleProfile, CartridgeProfile, FullProfile,
+    save_full_profile, load_full_profile, list_full_profiles
+)
 
 # Page configuration
 st.set_page_config(
@@ -138,6 +143,14 @@ if "compass_heading" not in st.session_state:
 if "use_compass" not in st.session_state:
     st.session_state.use_compass = False
 
+# Auth session state
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = None
+if "auth_message" not in st.session_state:
+    st.session_state.auth_message = None
+
 # Check for compass heading from URL query param
 query_params = st.query_params
 if "heading" in query_params:
@@ -172,8 +185,118 @@ with st.sidebar:
     
     st.divider()
     
-    # Profile section
+    # ============ Authentication Section ============
+    if not st.session_state.logged_in:
+        st.markdown("### 🔐 Login / Sign Up")
+        
+        auth_tab = st.radio("", ["Login", "Sign Up"], horizontal=True, label_visibility="collapsed")
+        
+        auth_username = st.text_input("Username", key="auth_username")
+        auth_password = st.text_input("Password", type="password", key="auth_password")
+        
+        if auth_tab == "Login":
+            if st.button("Login", type="primary", use_container_width=True):
+                success, message = authenticate_user(auth_username, auth_password)
+                if success:
+                    st.session_state.logged_in = True
+                    st.session_state.username = auth_username
+                    st.session_state.auth_message = f"✅ Welcome, {auth_username}!"
+                    st.rerun()
+                else:
+                    st.error(message)
+        else:
+            if st.button("Create Account", type="primary", use_container_width=True):
+                success, message = create_user(auth_username, auth_password)
+                if success:
+                    st.session_state.logged_in = True
+                    st.session_state.username = auth_username
+                    st.session_state.auth_message = f"✅ Account created! Welcome, {auth_username}!"
+                    st.rerun()
+                else:
+                    st.error(message)
+        
+        st.caption("💡 Login to save/load profiles")
+    else:
+        st.markdown(f"### 👤 {st.session_state.username}")
+        if st.session_state.auth_message:
+            st.success(st.session_state.auth_message)
+            st.session_state.auth_message = None
+        
+        if st.button("Logout", use_container_width=True):
+            st.session_state.logged_in = False
+            st.session_state.username = None
+            st.rerun()
+    
+    st.divider()
+    
+    # ============ Profile Section ============
     st.markdown("### 📋 Active Profile")
+    
+    # Profile save/load (only when logged in)
+    if st.session_state.logged_in:
+        saved_profiles = list_full_profiles(st.session_state.username)
+        
+        with st.expander("💾 Save / Load Profile", expanded=False):
+            # Load existing profile
+            if saved_profiles:
+                selected_profile = st.selectbox(
+                    "Load profile:",
+                    ["-- Select --"] + saved_profiles,
+                    key="profile_selector"
+                )
+                
+                if selected_profile != "-- Select --":
+                    if st.button("📂 Load", use_container_width=True):
+                        loaded = load_full_profile(st.session_state.username, selected_profile)
+                        if loaded:
+                            # Update session state with loaded profile
+                            st.session_state.profile = {
+                                "name": loaded.name,
+                                "muzzle_velocity": loaded.rifle.muzzle_velocity,
+                                "bc_g7": loaded.cartridge.bc_g7,
+                                "mass_grains": loaded.cartridge.mass_grains,
+                                "diameter": loaded.cartridge.diameter,
+                                "zero_range": loaded.rifle.zero_range,
+                                "sight_height": loaded.rifle.sight_height,
+                                "twist_rate": loaded.rifle.twist_rate,
+                            }
+                            st.success(f"✅ Loaded '{selected_profile}'")
+                            st.rerun()
+            else:
+                st.caption("No saved profiles yet")
+            
+            st.divider()
+            
+            # Save current profile
+            save_name = st.text_input("Save as:", st.session_state.profile["name"], key="save_profile_name")
+            if st.button("💾 Save Current Profile", use_container_width=True):
+                # Create profile objects
+                rifle = RifleProfile(
+                    name=save_name,
+                    muzzle_velocity=st.session_state.profile["muzzle_velocity"],
+                    zero_range=st.session_state.profile["zero_range"],
+                    sight_height=st.session_state.profile["sight_height"],
+                    twist_rate=st.session_state.profile["twist_rate"]
+                )
+                cartridge = CartridgeProfile(
+                    name=save_name,
+                    bc_g7=st.session_state.profile["bc_g7"],
+                    mass_grains=st.session_state.profile["mass_grains"],
+                    diameter=st.session_state.profile["diameter"]
+                )
+                full_profile = FullProfile(
+                    name=save_name,
+                    rifle=rifle,
+                    cartridge=cartridge
+                )
+                
+                success, message = save_full_profile(st.session_state.username, full_profile)
+                if success:
+                    st.success(f"✅ Profile '{save_name}' saved!")
+                    st.rerun()
+                else:
+                    st.error(message)
+    
     profile_name = st.text_input("Profile Name", st.session_state.profile["name"])
     
     st.markdown("#### Rifle")

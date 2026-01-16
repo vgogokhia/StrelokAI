@@ -189,33 +189,83 @@ with st.sidebar:
     if not st.session_state.logged_in:
         st.markdown("### 🔐 Login / Sign Up")
         
-        auth_tab = st.radio("", ["Login", "Sign Up"], horizontal=True, label_visibility="collapsed")
+        auth_method = st.radio("", ["Email", "Google"], horizontal=True, label_visibility="collapsed")
         
-        auth_username = st.text_input("Username", key="auth_username")
-        auth_password = st.text_input("Password", type="password", key="auth_password")
+        if auth_method == "Email":
+            auth_tab = st.radio("", ["Login", "Sign Up"], horizontal=True, label_visibility="collapsed", key="auth_tab_radio")
+            
+            st.text_input("Username", key="auth_username_input")
+            st.text_input("Password", type="password", key="auth_password_input")
+            
+            # Read from session state (fix for button click timing)
+            username_val = st.session_state.get("auth_username_input", "")
+            password_val = st.session_state.get("auth_password_input", "")
+            
+            if auth_tab == "Login":
+                if st.button("Login", type="primary", use_container_width=True):
+                    if username_val and password_val:
+                        success, message = authenticate_user(username_val, password_val)
+                        if success:
+                            st.session_state.logged_in = True
+                            st.session_state.username = username_val
+                            st.session_state.auth_message = f"Welcome, {username_val}!"
+                            st.rerun()
+                        else:
+                            st.error(message)
+                    else:
+                        st.error("Please enter username and password")
+            else:
+                if st.button("Create Account", type="primary", use_container_width=True):
+                    if username_val and password_val:
+                        success, message = create_user(username_val, password_val)
+                        if success:
+                            st.session_state.logged_in = True
+                            st.session_state.username = username_val
+                            st.session_state.auth_message = f"Account created! Welcome, {username_val}!"
+                            st.rerun()
+                        else:
+                            st.error(message)
+                    else:
+                        st.error("Please enter username and password")
         
-        if auth_tab == "Login":
-            if st.button("Login", type="primary", use_container_width=True):
-                success, message = authenticate_user(auth_username, auth_password)
-                if success:
-                    st.session_state.logged_in = True
-                    st.session_state.username = auth_username
-                    st.session_state.auth_message = f"✅ Welcome, {auth_username}!"
-                    st.rerun()
-                else:
-                    st.error(message)
         else:
-            if st.button("Create Account", type="primary", use_container_width=True):
-                success, message = create_user(auth_username, auth_password)
-                if success:
-                    st.session_state.logged_in = True
-                    st.session_state.username = auth_username
-                    st.session_state.auth_message = f"✅ Account created! Welcome, {auth_username}!"
-                    st.rerun()
+            # Google OAuth
+            st.markdown("##### Sign in with Google")
+            try:
+                from streamlit_google_auth import Authenticate
+                
+                # Google OAuth config (using Streamlit secrets or environment)
+                import os
+                client_id = os.getenv("GOOGLE_CLIENT_ID", st.secrets.get("google", {}).get("client_id", ""))
+                client_secret = os.getenv("GOOGLE_CLIENT_SECRET", st.secrets.get("google", {}).get("client_secret", ""))
+                redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "https://strelokai.streamlit.app")
+                
+                if client_id and client_secret:
+                    authenticator = Authenticate(
+                        secret_credentials_path=None,
+                        cookie_name="strelokai_auth",
+                        cookie_key="strelokai_secret_key",
+                        redirect_uri=redirect_uri,
+                        client_id=client_id,
+                        client_secret=client_secret,
+                    )
+                    
+                    authenticator.check_authentification()
+                    authenticator.login()
+                    
+                    if st.session_state.get("connected"):
+                        st.session_state.logged_in = True
+                        st.session_state.username = st.session_state.get("user_info", {}).get("email", "Google User")
+                        st.session_state.auth_message = f"Welcome, {st.session_state.username}!"
+                        st.rerun()
                 else:
-                    st.error(message)
+                    st.info("Google auth not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to secrets.")
+                    st.caption("Use Email login instead")
+            except ImportError:
+                st.warning("Google auth requires: `pip install streamlit-google-auth`")
+                st.caption("Use Email login for now")
         
-        st.caption("💡 Login to save/load profiles")
+        st.caption("Login to save/load profiles")
     else:
         st.markdown(f"### 👤 {st.session_state.username}")
         if st.session_state.auth_message:
@@ -225,6 +275,9 @@ with st.sidebar:
         if st.button("Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.username = None
+            # Also clear Google auth if used
+            if "connected" in st.session_state:
+                st.session_state.connected = False
             st.rerun()
     
     st.divider()

@@ -233,21 +233,38 @@ with st.sidebar:
             st.markdown("##### Sign in with Google")
             try:
                 from streamlit_google_auth import Authenticate
-                
-                # Google OAuth config (using Streamlit secrets or environment)
+                import json
+                import tempfile
                 import os
-                client_id = os.getenv("GOOGLE_CLIENT_ID", st.secrets.get("google", {}).get("client_id", ""))
-                client_secret = os.getenv("GOOGLE_CLIENT_SECRET", st.secrets.get("google", {}).get("client_secret", ""))
-                redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "https://strelokai.streamlit.app")
+                
+                # Get credentials from secrets
+                google_config = st.secrets.get("google", {})
+                client_id = google_config.get("client_id", "")
+                client_secret = google_config.get("client_secret", "")
+                redirect_uri = google_config.get("redirect_uri", "https://strelokai.streamlit.app")
                 
                 if client_id and client_secret:
+                    # Create temporary credentials file (required by library)
+                    creds = {
+                        "web": {
+                            "client_id": client_id,
+                            "client_secret": client_secret,
+                            "redirect_uris": [redirect_uri],
+                            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                            "token_uri": "https://oauth2.googleapis.com/token"
+                        }
+                    }
+                    
+                    # Write to temp file
+                    creds_path = "/tmp/google_creds.json"
+                    with open(creds_path, "w") as f:
+                        json.dump(creds, f)
+                    
                     authenticator = Authenticate(
-                        secret_credentials_path=None,
+                        secret_credentials_path=creds_path,
                         cookie_name="strelokai_auth",
-                        cookie_key="strelokai_secret_key",
+                        cookie_key="strelokai_secret_cookie_key_12345",
                         redirect_uri=redirect_uri,
-                        client_id=client_id,
-                        client_secret=client_secret,
                     )
                     
                     authenticator.check_authentification()
@@ -259,11 +276,14 @@ with st.sidebar:
                         st.session_state.auth_message = f"Welcome, {st.session_state.username}!"
                         st.rerun()
                 else:
-                    st.info("Google auth not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to secrets.")
-                    st.caption("Use Email login instead")
+                    st.info("Google auth not configured.")
+                    st.caption("Add credentials to Streamlit secrets, or use Email login")
             except ImportError:
                 st.warning("Google auth requires: `pip install streamlit-google-auth`")
                 st.caption("Use Email login for now")
+            except Exception as e:
+                st.error(f"Google auth error: {str(e)}")
+                st.caption("Use Email login instead")
         
         st.caption("Login to save/load profiles")
     else:

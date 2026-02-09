@@ -477,57 +477,63 @@ with col2:
         st.success(f"🧭 Heading: **{int(st.session_state.compass_heading)}°**")
     
     components.html("""
-    <div style="font-family: sans-serif; text-align: center;">
-        <button onclick="getCompass()" style="
-            background: linear-gradient(135deg, #1a1a2e 0%, #0f5132 100%);
-            color: #4CAF50; 
-            border: 2px solid #4CAF50; 
-            padding: 15px; 
-            border-radius: 10px; 
-            cursor: pointer;
-            font-size: 18px;
-            width: 100%;
-        ">🧭 GET COMPASS</button>
-        <div id="status" style="margin-top: 10px; color: #888;">Tap to get heading</div>
+    <div id="compass" onclick="apply()" style="font-family: sans-serif; text-align: center; cursor: pointer; background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%); padding: 15px; border-radius: 10px; border: 2px solid #4CAF50;">
+        <div style="font-size: 14px; color: #888;">🧭 COMPASS (tap to apply)</div>
+        <div id="deg" style="font-size: 42px; color: #4CAF50; font-weight: bold; margin: 5px 0;">---</div>
+        <div id="dir" style="font-size: 18px; color: #aaa;">Initializing...</div>
     </div>
     <script>
-    let done = false;
+    let currentHeading = null;
     function getDir(d) {
-        if (d >= 337.5 || d < 22.5) return 'N';
+        if (d >= 337.5 || d < 22.5) return 'NORTH';
         if (d < 67.5) return 'NE';
-        if (d < 112.5) return 'E';
+        if (d < 112.5) return 'EAST';
         if (d < 157.5) return 'SE';
-        if (d < 202.5) return 'S';
+        if (d < 202.5) return 'SOUTH';
         if (d < 247.5) return 'SW';
-        if (d < 292.5) return 'W';
+        if (d < 292.5) return 'WEST';
         return 'NW';
     }
-    function update(h) {
-        if (!done) {
-            done = true;
-            h = Math.round(h);
-            document.getElementById('status').innerHTML = '✓ ' + h + '° (' + getDir(h) + ') - Updating page...';
-            // Full absolute URL redirect
-            window.top.location.replace('https://strelokai.streamlit.app/?heading=' + h);
+    function updateDisplay(h) {
+        h = Math.round(h);
+        if (h < 0) h += 360;
+        if (h >= 360) h -= 360;
+        currentHeading = h;
+        document.getElementById('deg').innerHTML = h + '°';
+        document.getElementById('dir').innerHTML = getDir(h);
+    }
+    function handleOrientation(e) {
+        let heading;
+        if (e.webkitCompassHeading !== undefined) {
+            heading = e.webkitCompassHeading;
+        } else if (e.alpha !== null) {
+            heading = 360 - e.alpha;
+        }
+        if (heading !== undefined) updateDisplay(heading);
+    }
+    function apply() {
+        if (currentHeading !== null) {
+            window.top.location.href = 'https://strelokai.streamlit.app/?heading=' + currentHeading;
         }
     }
-    function getCompass() {
-        done = false;
-        document.getElementById('status').innerHTML = 'Reading compass...';
+    function startCompass() {
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             DeviceOrientationEvent.requestPermission().then(r => {
                 if (r === 'granted') {
-                    window.addEventListener('deviceorientation', e => { if(e.alpha) update(e.alpha); }, {once: true});
-                } else { document.getElementById('status').innerHTML = 'Denied'; }
-            });
+                    window.addEventListener('deviceorientationabsolute', handleOrientation);
+                    window.addEventListener('deviceorientation', handleOrientation);
+                } else document.getElementById('dir').innerHTML = 'Permission denied';
+            }).catch(() => document.getElementById('dir').innerHTML = 'Tap to enable');
         } else if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', e => { if(e.alpha) update(e.alpha); }, {once: true});
+            window.addEventListener('deviceorientationabsolute', handleOrientation);
+            window.addEventListener('deviceorientation', handleOrientation);
         } else {
-            document.getElementById('status').innerHTML = 'Not available';
+            document.getElementById('dir').innerHTML = 'Not available';
         }
     }
+    startCompass();
     </script>
-    """, height=100)
+    """, height=120)
     
     # Use session state heading for wind calculation
     compass_heading = st.session_state.compass_heading

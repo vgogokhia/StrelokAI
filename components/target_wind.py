@@ -57,77 +57,18 @@ def render_wind_section(col):
         )
         st.session_state.compass_heading = shooting_dir
         
-        components.html("""
-        <div id="compass" onclick="apply()" style="font-family: sans-serif; text-align: center; cursor: pointer; background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%); padding: 15px; border-radius: 10px; border: 2px solid #4CAF50;">
-            <div style="font-size: 14px; color: #888;">🧭 COMPASS (tap to apply)</div>
-            <div id="deg" style="font-size: 42px; color: #4CAF50; font-weight: bold; margin: 5px 0;">---</div>
-            <div id="dir" style="font-size: 18px; color: #aaa;">Initializing...</div>
-        </div>
-        <script>
-        let currentHeading = null;
-        let eventFired = false;
+        import os
+        compass_dir = os.path.join(os.path.dirname(__file__), "compass")
+        compass_component = components.declare_component("compass", path=compass_dir)
         
-        function getDir(d) {
-            if (d >= 337.5 || d < 22.5) return 'NORTH';
-            if (d < 67.5) return 'NE';
-            if (d < 112.5) return 'EAST';
-            if (d < 157.5) return 'SE';
-            if (d < 202.5) return 'SOUTH';
-            if (d < 247.5) return 'SW';
-            if (d < 292.5) return 'WEST';
-            return 'NW';
-        }
-        function updateDisplay(h) {
-            eventFired = true;
-            h = Math.round(h);
-            if (h < 0) h += 360;
-            if (h >= 360) h -= 360;
-            currentHeading = h;
-            document.getElementById('deg').innerHTML = h + '°';
-            document.getElementById('dir').innerHTML = getDir(h);
-        }
-        function handleOrientation(e) {
-            let heading;
-            if (e.webkitCompassHeading !== undefined) {
-                heading = e.webkitCompassHeading;
-            } else if (e.alpha !== null) {
-                heading = 360 - e.alpha;
-            }
-            if (heading !== undefined) updateDisplay(heading);
-        }
-        function apply() {
-            if (currentHeading !== null) {
-                window.parent.location.href = 'https://strelokai.streamlit.app/?heading=' + currentHeading;
-            }
-        }
-        function startCompass() {
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission().then(r => {
-                    if (r === 'granted') {
-                        window.addEventListener('deviceorientationabsolute', handleOrientation);
-                        window.addEventListener('deviceorientation', handleOrientation);
-                    } else document.getElementById('dir').innerHTML = 'Permission denied';
-                }).catch(() => document.getElementById('dir').innerHTML = 'Tap to enable');
-            } else if (window.DeviceOrientationEvent) {
-                window.addEventListener('deviceorientationabsolute', handleOrientation);
-                window.addEventListener('deviceorientation', handleOrientation);
-            } else {
-                document.getElementById('dir').innerHTML = 'Not available';
-            }
-            
-            // Check if we actually got data after a short timeout
-            setTimeout(() => {
-                if (!eventFired) {
-                    document.getElementById('deg').innerHTML = 'N/A';
-                    document.getElementById('dir').innerHTML = 'No compass sensor detected';
-                }
-            }, 1000);
-        }
-        
-        // Wait briefly before starting to allow DOM load
-        setTimeout(startCompass, 200);
-        </script>
-        """, height=140)
+        compass_data = compass_component(key="compass_js", default=None)
+        if compass_data is not None:
+            heading = compass_data.get("heading")
+            timestamp = compass_data.get("timestamp")
+            if timestamp != st.session_state.get("_last_compass_ts", 0):
+                st.session_state._last_compass_ts = timestamp
+                st.session_state.compass_heading = int(heading)
+                st.rerun()
         
         # Use session state heading for wind calculation
         compass_heading = st.session_state.compass_heading

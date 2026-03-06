@@ -39,7 +39,7 @@ def render_wind_section(col):
         st.session_state.wind_speed = wind_speed
         
         # Wind direction - degrees from North (meteorological)
-        wind_dir_deg = st.slider("Direction (°)", 0, 360, int(st.session_state.wind_dir_deg), 15)
+        wind_dir_deg = st.slider("Wind Direction (°)", 0, 360, int(st.session_state.wind_dir_deg), 15)
         st.session_state.wind_dir_deg = wind_dir_deg
         
         # Phone compass - auto updates on click

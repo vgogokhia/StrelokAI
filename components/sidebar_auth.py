@@ -91,26 +91,47 @@ def _render_google_login():
         from core.google_auth import get_google_auth_url
         auth_url = get_google_auth_url(client_id, redirect_uri)
         
-        # We use st.markdown with an HTML link styled like a Streamlit button
-        st.markdown(f"""
-        <a href="{auth_url}" target="_top" style="
-            display: block;
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            background-color: #4285F4;
-            color: white;
-            text-align: center;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            cursor: pointer;
-            border: 1px solid #357ae8;
-            font-family: inherit;
-        ">
-            🔵 Sign in with Google
-        </a>
-        """, unsafe_allow_html=True)
+        # Use st.components.v1.html to execute JS and break out of Streamlit's iframe
+        import streamlit.components.v1 as components
+        
+        btn_html = f"""
+        <html>
+        <head>
+        <style>
+            .g-btn {{
+                display: block;
+                width: 100%;
+                padding: 10px;
+                background-color: #4285F4;
+                color: white;
+                text-align: center;
+                border-radius: 8px;
+                text-decoration: none;
+                font-family: "Source Sans Pro", sans-serif;
+                font-weight: 600;
+                cursor: pointer;
+                border: 1px solid #357ae8;
+                box-sizing: border-box;
+                font-size: 16px;
+                transition: background-color 0.2s;
+            }}
+            .g-btn:hover {{
+                background-color: #357ae8;
+            }}
+            body {{
+                margin: 0;
+                padding: 0;
+            }}
+        </style>
+        </head>
+        <body>
+            <button class="g-btn" onclick="window.parent.location.href='{auth_url}'">
+                🔵 Sign in with Google
+            </button>
+        </body>
+        </html>
+        """
+        components.html(btn_html, height=45)
     else:
         st.button("🔵 Sign in with Google", disabled=True, use_container_width=True)
         st.caption("Google credentials not configured")

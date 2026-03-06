@@ -76,23 +76,23 @@ def render_wind_section(col):
         # Always calculate relative wind difference
         wind_deg = (wind_dir_deg - compass_heading) % 360
         
-        # Show relative wind description
+        # Show relative wind description (arrows point DOWNWIND, where the wind is going)
         if 337 <= wind_deg or wind_deg < 23:
-            rel_desc = "↑ Headwind"
+            rel_desc = "↓ Headwind"      # Wind from front, blowing towards you
         elif 23 <= wind_deg < 67:
-            rel_desc = "↗ 2 o'clock"
+            rel_desc = "↙ 2 o'clock"      # Wind from 2 o'clock, blowing towards 8 o'clock
         elif 67 <= wind_deg < 113:
-            rel_desc = "→ From Right"
+            rel_desc = "← From Right"     # Wind from right, blowing towards left
         elif 113 <= wind_deg < 157:
-            rel_desc = "↘ 4 o'clock"
+            rel_desc = "↖ 4 o'clock"      # Wind from 4 o'clock, blowing towards 10 o'clock
         elif 157 <= wind_deg < 203:
-            rel_desc = "↓ Tailwind"
+            rel_desc = "↑ Tailwind"       # Wind from behind, blowing forward
         elif 203 <= wind_deg < 247:
-            rel_desc = "↙ 8 o'clock"
+            rel_desc = "↗ 8 o'clock"      # Wind from 8 o'clock, blowing towards 2 o'clock
         elif 247 <= wind_deg < 293:
-            rel_desc = "← From Left"
+            rel_desc = "→ From Left"      # Wind from left, blowing towards right
         else:
-            rel_desc = "↖ 10 o'clock"
+            rel_desc = "↘ 10 o'clock"     # Wind from 10 o'clock, blowing towards 4 o'clock
         st.caption(f"**Relative: {rel_desc}**")
         
         return wind_deg  # Important to return the effective wind degree for calculations

@@ -1,6 +1,7 @@
 """
 StrelokAI Profile Management Module
 Save and load rifle and cartridge profiles
+Version: 1.0.0
 """
 import json
 from dataclasses import dataclass, asdict, field

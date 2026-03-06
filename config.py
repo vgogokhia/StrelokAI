@@ -1,6 +1,7 @@
 """
 StrelokAI Configuration
 Add your API keys here or use environment variables
+Version: 1.0.0
 """
 import os
 

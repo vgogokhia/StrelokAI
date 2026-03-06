@@ -1,6 +1,7 @@
 """
 StrelokAI Authentication Module
 Simple file-based user authentication with password hashing
+Version: 1.0.0
 """
 import hashlib
 import json

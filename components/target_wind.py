@@ -57,73 +57,18 @@ def render_wind_section(col):
         )
         st.session_state.compass_heading = shooting_dir
         
-        # Compass widget - reads phone magnetometer, tap to apply heading
-        # On tap, appends ?heading=X to current URL so url_handler.py picks it up
-        components.html("""
-        <div id="compass" onclick="apply()" style="font-family: sans-serif; text-align: center; cursor: pointer; background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%); padding: 15px; border-radius: 10px; border: 2px solid #4CAF50;">
-            <div style="font-size: 14px; color: #888;">🧭 COMPASS (tap to apply)</div>
-            <div id="deg" style="font-size: 42px; color: #4CAF50; font-weight: bold; margin: 5px 0;">---</div>
-            <div id="dir" style="font-size: 18px; color: #aaa;">Initializing...</div>
-        </div>
-        <script>
-        let currentHeading = null;
-        let eventFired = false;
-        function getDir(d) {
-            if (d >= 337.5 || d < 22.5) return 'N';
-            if (d < 67.5) return 'NE';
-            if (d < 112.5) return 'E';
-            if (d < 157.5) return 'SE';
-            if (d < 202.5) return 'S';
-            if (d < 247.5) return 'SW';
-            if (d < 292.5) return 'W';
-            return 'NW';
-        }
-        function updateDisplay(h) {
-            eventFired = true;
-            h = Math.round(h);
-            if (h < 0) h += 360;
-            if (h >= 360) h -= 360;
-            currentHeading = h;
-            document.getElementById('deg').textContent = h + '°';
-            document.getElementById('dir').textContent = getDir(h);
-        }
-        function handleOrientation(e) {
-            let heading;
-            if (e.webkitCompassHeading !== undefined) heading = e.webkitCompassHeading;
-            else if (e.alpha !== null) heading = 360 - e.alpha;
-            if (heading !== undefined) updateDisplay(heading);
-        }
-        function apply() {
-            if (currentHeading !== null) {
-                // Navigate the TOP window (escaping iframe) to current app URL with heading param
-                var baseUrl = window.top.location.origin + window.top.location.pathname;
-                window.top.location.href = baseUrl + '?heading=' + currentHeading;
-            }
-        }
-        function startCompass() {
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission().then(function(r) {
-                    if (r === 'granted') {
-                        window.addEventListener('deviceorientationabsolute', handleOrientation);
-                        window.addEventListener('deviceorientation', handleOrientation);
-                    } else { document.getElementById('dir').textContent = 'Permission denied'; }
-                }).catch(function() { document.getElementById('dir').textContent = 'Tap to enable'; });
-            } else if (window.DeviceOrientationEvent) {
-                window.addEventListener('deviceorientationabsolute', handleOrientation);
-                window.addEventListener('deviceorientation', handleOrientation);
-            } else {
-                document.getElementById('dir').textContent = 'Not available';
-            }
-            setTimeout(function() {
-                if (!eventFired) {
-                    document.getElementById('deg').textContent = 'N/A';
-                    document.getElementById('dir').textContent = 'Use manual input above';
-                }
-            }, 1500);
-        }
-        setTimeout(startCompass, 300);
-        </script>
-        """, height=130)
+        # declare_component is the ONLY way to get data back from JS to Python in Streamlit
+        # components.html() is one-way (Python→JS only), it cannot return values
+        from pathlib import Path
+        _compass_dir = Path(__file__).parent / "compass"
+        _compass_comp = components.declare_component("compass_widget", path=str(_compass_dir))
+        
+        _compass_val = _compass_comp(key="compass_input", default=None)
+        if isinstance(_compass_val, dict) and "heading" in _compass_val:
+            new_h = int(_compass_val["heading"])
+            if new_h != st.session_state.compass_heading:
+                st.session_state.compass_heading = new_h
+                st.rerun()
         
         # Use session state heading for wind calculation
         compass_heading = st.session_state.compass_heading

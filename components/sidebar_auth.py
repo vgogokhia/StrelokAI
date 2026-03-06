@@ -53,6 +53,18 @@ def render_sidebar_auth():
         # Google Sign-In button
         _render_google_login()
         
+        # DEBUG VIEW for 403 error
+        if st.checkbox("Show Google Auth Debug Info"):
+            google_config = st.secrets.get("google", {})
+            client_id = google_config.get("client_id", "NOT SET")
+            redirect_uri = google_config.get("redirect_uri", "NOT SET")
+            st.code(f"Client ID: {client_id}\nRedirect: {redirect_uri}", language="text")
+            
+            from core.google_auth import get_google_auth_url
+            if client_id != "NOT SET" and redirect_uri != "NOT SET":
+                st.code(get_google_auth_url(client_id, redirect_uri), language="text")
+                st.info("Copy the URL above and paste it directly into an Incognito window. If it gives 403 right away, the Google Console config is definitely wrong. If it works there but not when clicking the button, Streamlit Cloud is blocking the referrer.")
+            
         st.caption("Login to save/load profiles")
     else:
         st.markdown(f"### 👤 {st.session_state.username}")

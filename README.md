@@ -105,7 +105,7 @@ Pure Python physics engine:
 | `core/state.py` | 1.0.0 | 2026-03-06 | Session state initialization |
 | `core/theme.py` | 1.0.0 | 2026-03-06 | CSS theme definitions (Dark, Red) |
 | `core/url_handler.py` | 1.0.0 | 2026-03-06 | URL query parameter processing |
-| `components/sidebar_auth.py` | 1.0.0 | 2026-03-06 | Sidebar login/signup UI |
+| `components/sidebar_auth.py` | 1.1.0 | 2026-03-07 | Sidebar login/signup UI + Google button |
 | `components/sidebar_profiles.py` | 1.0.0 | 2026-03-06 | Sidebar profile editor & save/load |
 | `components/target_wind.py` | 1.0.0 | 2026-03-06 | Target distance & wind input controls |
 | `components/atmosphere.py` | 1.0.0 | 2026-03-06 | Weather sync & atmospheric inputs |

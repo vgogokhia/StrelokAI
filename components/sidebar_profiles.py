@@ -45,7 +45,6 @@ def render_sidebar_profiles():
                 if save_rifle_name:
                     new_rifle = RifleProfile(
                         name=save_rifle_name,
-                        muzzle_velocity=st.session_state.profile["muzzle_velocity"],
                         zero_range=st.session_state.profile["zero_range"],
                         sight_height=st.session_state.profile["sight_height"],
                         twist_rate=st.session_state.profile["twist_rate"]
@@ -60,10 +59,6 @@ def render_sidebar_profiles():
                     st.error("Enter a name")
         
         st.divider()
-        muzzle_velocity = st.number_input(
-            "Muzzle Velocity (m/s)", 
-            min_value=200.0, max_value=1500.0, value=st.session_state.profile["muzzle_velocity"], step=1.0
-        )
         zero_range = st.number_input(
             "Zero Range (m)",
             min_value=25.0, max_value=500.0, value=st.session_state.profile["zero_range"], step=25.0
@@ -101,6 +96,9 @@ def render_sidebar_profiles():
                                 "bc_g7": loaded.bc_g7,
                                 "mass_grains": loaded.mass_grains,
                                 "diameter": loaded.diameter,
+                                "muzzle_velocity": loaded.muzzle_velocity,
+                                "mv_temp_c": getattr(loaded, "mv_temp_c", 15.0),
+                                "temp_sensitivity": getattr(loaded, "temp_sensitivity", 0.1),
                             })
                             # Legacy support for profiles saved before G1/G7 update
                             if hasattr(loaded, 'bc_g1') and loaded.bc_g1 is not None:
@@ -119,11 +117,14 @@ def render_sidebar_profiles():
                     
                     new_ammo = CartridgeProfile(
                         name=save_ammo_name,
+                        muzzle_velocity=st.session_state.profile["muzzle_velocity"],
                         drag_model=model,
                         bc_g7=bc_val if model == "G7" else 0.0,  
                         bc_g1=bc_val if model == "G1" else None,
                         mass_grains=st.session_state.profile["mass_grains"],
-                        diameter=st.session_state.profile["diameter"]
+                        diameter=st.session_state.profile["diameter"],
+                        mv_temp_c=st.session_state.profile.get("mv_temp_c", 15.0),
+                        temp_sensitivity=st.session_state.profile.get("temp_sensitivity", 0.1)
                     )
                     success, msg = save_cartridge_profile(st.session_state.username, new_ammo)
                     if success:
@@ -163,10 +164,31 @@ def render_sidebar_profiles():
             step=0.001,
             format="%.3f"
         )
+        
+        st.divider()
+        st.markdown("**Velocity & Temperature Settings**")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            muzzle_velocity = st.number_input(
+                "Muzzle Velocity (m/s)", 
+                min_value=200.0, max_value=1500.0, value=st.session_state.profile["muzzle_velocity"], step=1.0
+            )
+        with col2:
+            mv_temp_c = st.number_input(
+                "MV At Temp (°C)", 
+                min_value=-50.0, max_value=60.0, value=st.session_state.profile.get("mv_temp_c", 15.0), step=1.0
+            )
+        with col3:
+            temp_sensitivity = st.number_input(
+                "Sensitivity (%/°C)", 
+                min_value=0.0, max_value=5.0, value=st.session_state.profile.get("temp_sensitivity", 0.1), step=0.05, format="%.2f"
+            )
     
     # Update profile tracking
     st.session_state.profile.update({
         "muzzle_velocity": muzzle_velocity,
+        "mv_temp_c": mv_temp_c,
+        "temp_sensitivity": temp_sensitivity,
         "drag_model": drag_model,
         "bc_g7": bc_val,  # Unifying BC value under one key for ease of use in ballistics, with drag_model indicating its type
         "mass_grains": mass_grains,

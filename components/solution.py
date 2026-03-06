@@ -8,13 +8,23 @@ from ballistics.solver import calculate_solution
 from config import DEFAULT_LATITUDE
 
 def render_solution_section(
-    muzzle_velocity, drag_model, bc_val, mass_grains, diameter, zero_range, 
+    muzzle_velocity, mv_temp_c, temp_sensitivity,
+    drag_model, bc_val, mass_grains, diameter, zero_range, 
     target_range, temp_c, pressure, humidity, altitude, 
     wind_speed, wind_deg
 ):
     try:
+        # Calculate actual muzzle velocity based on powder temperature sensitivity
+        # Formula: MV + MV * (Sensitivity% / 100) * (Current Temp - MV Temp)
+        temp_diff = temp_c - mv_temp_c
+        actual_mv = muzzle_velocity + muzzle_velocity * (temp_sensitivity / 100.0) * temp_diff
+        
+        # Display the calculated MV offset above the solution if it's different from the base profile
+        if abs(temp_diff) > 0.1 and temp_sensitivity > 0:
+            st.caption(f"🔥 Adjusted MV: **{actual_mv:.1f} m/s** (Base: {muzzle_velocity}m/s @ {mv_temp_c}°C)")
+            
         solution = calculate_solution(
-            muzzle_velocity_mps=muzzle_velocity,
+            muzzle_velocity_mps=actual_mv,
             bc_g7=bc_val if drag_model == "G7" else None,
             bc_g1=bc_val if drag_model == "G1" else None,
             mass_grains=mass_grains,

@@ -79,6 +79,8 @@ temp_c, pressure, humidity, altitude = render_atmosphere_section()
 st.divider()
 render_solution_section(
     muzzle_velocity=st.session_state.profile["muzzle_velocity"],
+    mv_temp_c=st.session_state.profile.get("mv_temp_c", 15.0),
+    temp_sensitivity=st.session_state.profile.get("temp_sensitivity", 0.1),
     drag_model=st.session_state.profile.get("drag_model", "G7"),
     bc_val=st.session_state.profile["bc_g7"],
     mass_grains=st.session_state.profile["mass_grains"],

@@ -16,7 +16,6 @@ from auth import get_user_data_dir
 class RifleProfile:
     """Rifle configuration profile"""
     name: str
-    muzzle_velocity: float  # m/s
     zero_range: float  # meters
     sight_height: float  # mm
     twist_rate: float  # 1:X inches
@@ -36,10 +35,13 @@ class RifleProfile:
 class CartridgeProfile:
     """Cartridge/bullet configuration profile"""
     name: str
+    muzzle_velocity: float  # m/s
     drag_model: str  # "G1" or "G7"
     bc_g7: float  # G7 Ballistic Coefficient
     mass_grains: float  # Bullet weight in grains
     diameter: float  # inches
+    mv_temp_c: float = 15.0  # Temperature at which MV was measured
+    temp_sensitivity: float = 0.1  # % change in MV per 1°C
     description: str = ""
     bc_g1: Optional[float] = None  # Optional G1 BC
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -176,11 +178,17 @@ class FullProfile:
     
     @classmethod
     def from_dict(cls, data: dict) -> "FullProfile":
+        # Handle legacy profiles where muzzle_velocity was in Rifle
+        rifle_data = data["rifle"]
+        cartridge_data = data["cartridge"]
+        if "muzzle_velocity" in rifle_data and "muzzle_velocity" not in cartridge_data:
+            cartridge_data["muzzle_velocity"] = rifle_data.pop("muzzle_velocity")
+            
         return cls(
             name=data["name"],
             description=data.get("description", ""),
-            rifle=RifleProfile.from_dict(data["rifle"]),
-            cartridge=CartridgeProfile.from_dict(data["cartridge"]),
+            rifle=RifleProfile.from_dict(rifle_data),
+            cartridge=CartridgeProfile.from_dict(cartridge_data),
             created_at=data.get("created_at", datetime.now().isoformat())
         )
 

@@ -8,12 +8,15 @@ from ballistics.solver import calculate_solution
 from config import DEFAULT_LATITUDE
 
 def render_solution_section(
-    muzzle_velocity, mv_temp_c, temp_sensitivity,
-    drag_model, bc_val, mass_grains, diameter, zero_range, 
+    muzzle_velocity, drag_model, bc_val, mass_grains, diameter, zero_range, 
     target_range, temp_c, pressure, humidity, altitude, 
-    wind_speed, wind_deg
+    wind_speed, wind_deg, **kwargs
 ):
     try:
+        # Safely extract new variables from **kwargs to bypass Streamlit cached module signatures
+        mv_temp_c = kwargs.get('mv_temp_c', 15.0)
+        temp_sensitivity = kwargs.get('temp_sensitivity', 0.1)
+        
         # Calculate actual muzzle velocity based on powder temperature sensitivity
         # Formula: MV + MV * (Sensitivity% / 100) * (Current Temp - MV Temp)
         temp_diff = temp_c - mv_temp_c

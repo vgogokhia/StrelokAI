@@ -8,14 +8,15 @@ from ballistics.solver import calculate_solution
 from config import DEFAULT_LATITUDE
 
 def render_solution_section(
-    muzzle_velocity, bc_g7, mass_grains, diameter, zero_range, 
+    muzzle_velocity, drag_model, bc_val, mass_grains, diameter, zero_range, 
     target_range, temp_c, pressure, humidity, altitude, 
     wind_speed, wind_deg
 ):
     try:
         solution = calculate_solution(
             muzzle_velocity_mps=muzzle_velocity,
-            bc_g7=bc_g7,
+            bc_g7=bc_val if drag_model == "G7" else None,
+            bc_g1=bc_val if drag_model == "G1" else None,
             mass_grains=mass_grains,
             diameter_inches=diameter,
             zero_range_m=zero_range,

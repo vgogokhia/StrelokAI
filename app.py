@@ -1,7 +1,7 @@
 """
 StrelokAI - AI-Powered Ballistic Calculator
 Main Streamlit Application
-Version: 1.1.0
+Version: 1.2.0
 """
 import streamlit as st
 
@@ -79,7 +79,8 @@ temp_c, pressure, humidity, altitude = render_atmosphere_section()
 st.divider()
 render_solution_section(
     muzzle_velocity=st.session_state.profile["muzzle_velocity"],
-    bc_g7=st.session_state.profile["bc_g7"],
+    drag_model=st.session_state.profile.get("drag_model", "G7"),
+    bc_val=st.session_state.profile["bc_g7"],
     mass_grains=st.session_state.profile["mass_grains"],
     diameter=st.session_state.profile["diameter"],
     zero_range=st.session_state.profile["zero_range"],

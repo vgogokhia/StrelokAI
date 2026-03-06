@@ -98,19 +98,19 @@ Pure Python physics engine:
 
 | File | Version | Last Updated | Description |
 |---|---|---|---|
-| `app.py` | 1.1.0 | 2026-03-07 | Entry point, routing Google Auth |
+| `app.py` | 1.2.0 | 2026-03-07 | Entry point, routing Google Auth, passing drag_model |
 | `config.py` | 1.0.0 | 2026-03-06 | API keys, app constants, solver defaults |
 | `auth.py` | 1.0.0 | 2026-03-06 | User authentication (create, login, verify) |
-| `profiles.py` | 1.0.0 | 2026-03-06 | Profile dataclasses & CRUD operations |
-| `core/state.py` | 1.0.0 | 2026-03-06 | Session state initialization |
+| `profiles.py` | 1.1.0 | 2026-03-07 | Profile dataclasses & CRUD operations, added drag_model |
+| `core/state.py` | 1.1.0 | 2026-03-07 | Session state initialization |
 | `core/theme.py` | 1.0.0 | 2026-03-06 | CSS theme definitions (Dark, Red) |
 | `core/url_handler.py` | 1.0.0 | 2026-03-06 | URL query parameter processing |
 | `core/google_auth.py` | 1.0.0 | 2026-03-07 | Custom OAuth2 Google Sign-in flow |
 | `components/sidebar_auth.py` | 1.2.0 | 2026-03-07 | Sidebar login/signup UI + Custom Google OAuth button |
-| `components/sidebar_profiles.py` | 1.0.0 | 2026-03-06 | Sidebar profile editor & save/load |
+| `components/sidebar_profiles.py` | 2.0.0 | 2026-03-07 | Sidebar split Rifle/Ammo editor, save/load |
 | `components/target_wind.py` | 1.0.0 | 2026-03-06 | Target distance & wind input controls |
 | `components/atmosphere.py` | 1.0.0 | 2026-03-06 | Weather sync & atmospheric inputs |
-| `components/solution.py` | 1.0.0 | 2026-03-06 | Ballistic calculation & results display |
+| `components/solution.py` | 1.1.0 | 2026-03-07 | Ballistic calculation & results display |
 | `components/ai_features.py` | 1.0.0 | 2026-03-06 | AI scope recognition UI |
 | `ballistics/solver.py` | 1.0.0 | 2026-03-06 | Core ballistic trajectory solver |
 | `ballistics/atmosphere.py` | 1.0.0 | 2026-03-06 | Atmospheric model calculations |

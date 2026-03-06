@@ -461,7 +461,7 @@ class BallisticSolver:
 # Convenience function
 def calculate_solution(
     muzzle_velocity_mps: float,
-    bc_g7: float,
+    bc_g7: Optional[float],
     mass_grains: float,
     diameter_inches: float,
     zero_range_m: float,
@@ -473,7 +473,8 @@ def calculate_solution(
     wind_speed_mps: float = 0.0,
     wind_direction_deg: float = 90.0,
     latitude_deg: float = 41.7,
-    azimuth_deg: float = 0.0
+    azimuth_deg: float = 0.0,
+    bc_g1: Optional[float] = None
 ) -> BallisticSolution:
     """
     Quick calculation with minimal setup
@@ -481,6 +482,7 @@ def calculate_solution(
     projectile = Projectile(
         mass_grains=mass_grains,
         diameter_inches=diameter_inches,
+        bc_g1=bc_g1,
         bc_g7=bc_g7
     )
     

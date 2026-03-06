@@ -1,7 +1,7 @@
 """
 StrelokAI Profile Management Module
 Save and load rifle and cartridge profiles
-Version: 1.0.0
+Version: 1.1.0
 """
 import json
 from dataclasses import dataclass, asdict, field
@@ -36,6 +36,7 @@ class RifleProfile:
 class CartridgeProfile:
     """Cartridge/bullet configuration profile"""
     name: str
+    drag_model: str  # "G1" or "G7"
     bc_g7: float  # G7 Ballistic Coefficient
     mass_grains: float  # Bullet weight in grains
     diameter: float  # inches

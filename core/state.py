@@ -11,6 +11,7 @@ def init_session_state():
         st.session_state.profile = {
             "name": "Default Profile",
             "muzzle_velocity": 850.0,
+            "drag_model": "G7",
             "bc_g7": 0.243,
             "mass_grains": 175.0,
             "diameter": 0.308,

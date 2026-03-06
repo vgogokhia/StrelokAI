@@ -1,7 +1,7 @@
 """
 StrelokAI - AI-Powered Ballistic Calculator
 Main Streamlit Application
-Version: 1.0.0
+Version: 1.1.0
 """
 import streamlit as st
 
@@ -31,8 +31,12 @@ from components.ai_features import render_ai_features
 # Initialize Session State
 init_session_state()
 
-# Process URL Params
+# Process URL Params & OAuth Return
 process_query_params()
+from core.google_auth import handle_google_oauth
+google_auth_success, google_err = handle_google_oauth()
+if google_err:
+    st.sidebar.error(google_err)
 
 # Apply Theme
 apply_theme(st.session_state.theme)

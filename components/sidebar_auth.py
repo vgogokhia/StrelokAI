@@ -1,7 +1,7 @@
 """
 StrelokAI - Sidebar Authentication Component
 Renders Email login/signup forms and Google sign-in button in the sidebar.
-Version: 1.1.0
+Version: 1.2.0
 """
 import streamlit as st
 from auth import create_user, authenticate_user
@@ -70,57 +70,35 @@ def render_sidebar_auth():
 
 
 def _render_google_login():
-    """Render a styled Google sign-in button."""
-    try:
-        from streamlit_google_auth import Authenticate
-        import json
+    """Render a styled Google sign-in button that redirects to the standard OAuth flow."""
+    google_config = st.secrets.get("google", {})
+    client_id = google_config.get("client_id", "")
+    redirect_uri = google_config.get("redirect_uri", "https://strelokai.streamlit.app")
+    
+    if client_id and redirect_uri:
+        from core.google_auth import get_google_auth_url
+        auth_url = get_google_auth_url(client_id, redirect_uri)
         
-        # Get credentials from secrets
-        google_config = st.secrets.get("google", {})
-        client_id = google_config.get("client_id", "")
-        client_secret = google_config.get("client_secret", "")
-        redirect_uri = google_config.get("redirect_uri", "https://strelokai.streamlit.app")
-        
-        if client_id and client_secret:
-            # Create temporary credentials file (required by library)
-            creds = {
-                "web": {
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "redirect_uris": [redirect_uri],
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token"
-                }
-            }
-            
-            # Write to temp file
-            creds_path = "/tmp/google_creds.json"
-            with open(creds_path, "w") as f:
-                json.dump(creds, f)
-            
-            authenticator = Authenticate(
-                secret_credentials_path=creds_path,
-                cookie_name="strelokai_auth",
-                cookie_key="strelokai_secret_cookie_key_12345",
-                redirect_uri=redirect_uri,
-            )
-            
-            authenticator.check_authentification()
-            
-            if st.session_state.get("connected"):
-                st.session_state.logged_in = True
-                st.session_state.username = st.session_state.get("user_info", {}).get("email", "Google User")
-                st.session_state.auth_message = f"Welcome, {st.session_state.username}!"
-                st.rerun()
-            else:
-                authenticator.login()
-        else:
-            # No Google credentials configured — show disabled-style button
-            st.button("🔵 Sign in with Google", disabled=True, use_container_width=True)
-            st.caption("Google auth not configured")
-    except ImportError:
+        # We use st.markdown with an HTML link styled like a Streamlit button
+        st.markdown(f"""
+        <a href="{auth_url}" target="_self" style="
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #4285F4;
+            color: white;
+            text-align: center;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid #357ae8;
+            font-family: inherit;
+        ">
+            🔵 Sign in with Google
+        </a>
+        """, unsafe_allow_html=True)
+    else:
         st.button("🔵 Sign in with Google", disabled=True, use_container_width=True)
-        st.caption("Requires: streamlit-google-auth")
-    except Exception as e:
-        st.button("🔵 Sign in with Google", disabled=True, use_container_width=True)
-        st.caption(f"Google auth error: {str(e)}")
+        st.caption("Google credentials not configured")

@@ -73,46 +73,26 @@ def render_wind_section(col):
         # Use session state heading for wind calculation
         compass_heading = st.session_state.compass_heading
         
-        # Calculate relative wind if heading is set
-        if compass_heading > 0:
-            wind_deg = (wind_dir_deg - compass_heading) % 360
-            # Show relative wind description
-            if 337 <= wind_deg or wind_deg < 23:
-                rel_desc = "↑ Headwind"
-            elif 23 <= wind_deg < 67:
-                rel_desc = "↗ 2 o'clock"
-            elif 67 <= wind_deg < 113:
-                rel_desc = "→ From Right"
-            elif 113 <= wind_deg < 157:
-                rel_desc = "↘ 4 o'clock"
-            elif 157 <= wind_deg < 203:
-                rel_desc = "↓ Tailwind"
-            elif 203 <= wind_deg < 247:
-                rel_desc = "↙ 8 o'clock"
-            elif 247 <= wind_deg < 293:
-                rel_desc = "← From Left"
-            else:
-                rel_desc = "↖ 10 o'clock"
-            st.caption(f"**Relative: {rel_desc}**")
+        # Always calculate relative wind difference
+        wind_deg = (wind_dir_deg - compass_heading) % 360
+        
+        # Show relative wind description
+        if 337 <= wind_deg or wind_deg < 23:
+            rel_desc = "↑ Headwind"
+        elif 23 <= wind_deg < 67:
+            rel_desc = "↗ 2 o'clock"
+        elif 67 <= wind_deg < 113:
+            rel_desc = "→ From Right"
+        elif 113 <= wind_deg < 157:
+            rel_desc = "↘ 4 o'clock"
+        elif 157 <= wind_deg < 203:
+            rel_desc = "↓ Tailwind"
+        elif 203 <= wind_deg < 247:
+            rel_desc = "↙ 8 o'clock"
+        elif 247 <= wind_deg < 293:
+            rel_desc = "← From Left"
         else:
-            wind_deg = wind_dir_deg
-            # Show absolute wind description
-            if 337 <= wind_deg or wind_deg < 23:
-                wind_desc = "From North"
-            elif 23 <= wind_deg < 67:
-                wind_desc = "From NE"
-            elif 67 <= wind_deg < 113:
-                wind_desc = "From East"
-            elif 113 <= wind_deg < 157:
-                wind_desc = "From SE"
-            elif 157 <= wind_deg < 203:
-                wind_desc = "From South"
-            elif 203 <= wind_deg < 247:
-                wind_desc = "From SW"
-            elif 247 <= wind_deg < 293:
-                wind_desc = "From West"
-            else:
-                wind_desc = "From NW"
-            st.caption(f"🌬️ {wind_desc}")
+            rel_desc = "↖ 10 o'clock"
+        st.caption(f"**Relative: {rel_desc}**")
         
         return wind_deg  # Important to return the effective wind degree for calculations

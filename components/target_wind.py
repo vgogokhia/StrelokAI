@@ -47,6 +47,16 @@ def render_wind_section(col):
         if st.session_state.compass_heading > 0:
             st.success(f"🧭 Heading: **{int(st.session_state.compass_heading)}°**")
         
+        # Manual Shooting Direction Input
+        shooting_dir = st.number_input(
+            "Shooting Direction (°)",
+            min_value=0, max_value=359,
+            value=int(st.session_state.compass_heading),
+            step=5,
+            help="Direction you are aiming (0 = North, 90 = East). You can enter this manually or tap the compass block on a mobile device to auto-fill."
+        )
+        st.session_state.compass_heading = shooting_dir
+        
         components.html("""
         <div id="compass" onclick="apply()" style="font-family: sans-serif; text-align: center; cursor: pointer; background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%); padding: 15px; border-radius: 10px; border: 2px solid #4CAF50;">
             <div style="font-size: 14px; color: #888;">🧭 COMPASS (tap to apply)</div>
@@ -55,6 +65,8 @@ def render_wind_section(col):
         </div>
         <script>
         let currentHeading = null;
+        let eventFired = false;
+        
         function getDir(d) {
             if (d >= 337.5 || d < 22.5) return 'NORTH';
             if (d < 67.5) return 'NE';
@@ -66,6 +78,7 @@ def render_wind_section(col):
             return 'NW';
         }
         function updateDisplay(h) {
+            eventFired = true;
             h = Math.round(h);
             if (h < 0) h += 360;
             if (h >= 360) h -= 360;
@@ -84,7 +97,7 @@ def render_wind_section(col):
         }
         function apply() {
             if (currentHeading !== null) {
-                window.top.location.href = 'https://strelokai.streamlit.app/?heading=' + currentHeading;
+                window.parent.location.href = 'https://strelokai.streamlit.app/?heading=' + currentHeading;
             }
         }
         function startCompass() {
@@ -101,10 +114,20 @@ def render_wind_section(col):
             } else {
                 document.getElementById('dir').innerHTML = 'Not available';
             }
+            
+            // Check if we actually got data after a short timeout
+            setTimeout(() => {
+                if (!eventFired) {
+                    document.getElementById('deg').innerHTML = 'N/A';
+                    document.getElementById('dir').innerHTML = 'No compass sensor detected';
+                }
+            }, 1000);
         }
-        startCompass();
+        
+        // Wait briefly before starting to allow DOM load
+        setTimeout(startCompass, 200);
         </script>
-        """, height=120)
+        """, height=140)
         
         # Use session state heading for wind calculation
         compass_heading = st.session_state.compass_heading

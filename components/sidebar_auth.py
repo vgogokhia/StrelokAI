@@ -93,7 +93,7 @@ def _render_google_login():
         
         # We use st.markdown with an HTML link styled like a Streamlit button
         st.markdown(f"""
-        <a href="{auth_url}" target="_self" style="
+        <a href="{auth_url}" target="_top" style="
             display: block;
             width: 100%;
             padding: 10px;

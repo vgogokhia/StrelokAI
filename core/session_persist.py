@@ -64,11 +64,21 @@ def _decode(token: str) -> Optional[str]:
     return username
 
 
-@st.cache_resource(show_spinner=False)
 def _cookie_manager():
+    """Return a singleton CookieManager for this session.
+
+    The manager internally registers a Streamlit component, so it cannot
+    be created inside ``@st.cache_resource`` (that triggers
+    CachedWidgetWarning). Stash it on session_state instead so each
+    session reuses one instance.
+    """
     if not _COOKIE_AVAILABLE:
         return None
-    return stx.CookieManager(key="strelokai_cookie_mgr")
+    if "_cookie_manager_instance" not in st.session_state:
+        st.session_state._cookie_manager_instance = stx.CookieManager(
+            key="strelokai_cookie_mgr"
+        )
+    return st.session_state._cookie_manager_instance
 
 
 def restore_session_from_cookie() -> None:

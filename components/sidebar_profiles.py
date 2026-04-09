@@ -101,9 +101,16 @@ def render_sidebar_profiles():
                         st.session_state.get("_last_loaded_ammo") != selected_ammo:
                     loaded = load_cartridge_profile(st.session_state.username, selected_ammo)
                     if loaded:
+                        # The UI reuses the "bc_g7" session key for whichever BC
+                        # is active, regardless of drag_model. Saves zero out the
+                        # inactive side, so on load we have to pick whichever
+                        # side actually holds the value.
+                        active_bc = loaded.bc_g7 if loaded.drag_model == "G7" else (loaded.bc_g1 or 0.0)
+                        if active_bc <= 0:
+                            active_bc = loaded.bc_g7 or loaded.bc_g1 or 0.100
                         st.session_state.profile.update({
                             "drag_model": loaded.drag_model,
-                            "bc_g7": loaded.bc_g7,
+                            "bc_g7": active_bc,
                             "mass_grains": loaded.mass_grains,
                             "diameter": loaded.diameter,
                             "muzzle_velocity": loaded.muzzle_velocity,
@@ -111,9 +118,6 @@ def render_sidebar_profiles():
                             "temp_sensitivity": getattr(loaded, "temp_sensitivity", 0.1),
                             "bullet_length_in": getattr(loaded, "bullet_length_in", 1.0),
                         })
-                        # Legacy support for profiles saved before G1/G7 update
-                        if hasattr(loaded, 'bc_g1') and loaded.bc_g1 is not None:
-                            st.session_state.profile["bc_g1"] = loaded.bc_g1
                         st.session_state._last_loaded_ammo = selected_ammo
                         st.rerun()
             

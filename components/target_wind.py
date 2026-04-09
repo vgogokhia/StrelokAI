@@ -7,54 +7,56 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 QUICK_RANGES = [100, 300, 500, 800, 1000]
-_MAX_RECENT = 5
 
 
-def _push_recent(range_m: int):
-    recents = [r for r in st.session_state.get("recent_ranges", []) if r != range_m]
-    recents.insert(0, int(range_m))
-    st.session_state.recent_ranges = recents[:_MAX_RECENT]
+def _sync_range(value: int):
+    """Update the single source of truth AND both widget-owned keys."""
+    v = int(value)
+    st.session_state.target_range = v
+    st.session_state.target_range_num = v
+    st.session_state.target_range_slider = v
 
 
-def _set_range(range_m: int):
-    st.session_state.target_range = int(range_m)
-    _push_recent(range_m)
-    st.rerun()
+def _on_num_change():
+    _sync_range(st.session_state.target_range_num)
+
+
+def _on_slider_change():
+    _sync_range(st.session_state.target_range_slider)
 
 
 def render_target_section(col):
     with col:
         st.markdown("#### Target")
 
+        # Seed widget-owned keys from target_range on first render (and whenever
+        # target_range was changed externally, e.g. by a quick-range button).
+        tr = int(st.session_state.target_range)
+        if st.session_state.get("target_range_num") != tr:
+            st.session_state.target_range_num = tr
+        if st.session_state.get("target_range_slider") != tr:
+            st.session_state.target_range_slider = tr
+
         # Row 1: editable number + slider side-by-side
         num_col, slider_col = st.columns([1, 3], gap="small")
         with num_col:
-            typed = st.number_input(
+            st.number_input(
                 "Distance",
                 min_value=50, max_value=2000,
-                value=int(st.session_state.target_range),
                 step=5,
                 key="target_range_num",
+                on_change=_on_num_change,
                 label_visibility="collapsed",
             )
         with slider_col:
-            slid = st.slider(
+            st.slider(
                 "Distance Slider",
                 min_value=50, max_value=2000,
-                value=int(st.session_state.target_range),
                 step=5,
                 key="target_range_slider",
+                on_change=_on_slider_change,
                 label_visibility="collapsed",
             )
-        # Whichever widget changed most recently wins.
-        new_range = None
-        if typed != st.session_state.target_range:
-            new_range = typed
-        elif slid != st.session_state.target_range:
-            new_range = slid
-        if new_range is not None:
-            st.session_state.target_range = int(new_range)
-            _push_recent(int(new_range))
 
         current = int(st.session_state.target_range)
 
@@ -67,30 +69,17 @@ def render_target_section(col):
                 key=f"qr_{r}",
                 use_container_width=True,
                 type="primary" if is_active else "secondary",
+                on_click=_sync_range,
+                args=(r,),
             ):
-                _set_range(r)
+                pass
         with chip_cols[-1]:
-            # st.popover is available in Streamlit >= 1.32
             try:
                 with st.popover("⚙", use_container_width=True):
                     _render_angle_cant_inputs()
             except Exception:
                 with st.expander("⚙ Angle/Cant", expanded=False):
                     _render_angle_cant_inputs()
-
-        # Row 3 (conditional): recent ranges, pill-sized
-        recents = [r for r in st.session_state.get("recent_ranges", []) if r not in QUICK_RANGES]
-        if recents:
-            rec_cols = st.columns([0.6] + [1] * len(recents))
-            rec_cols[0].caption("Recent")
-            for i, r in enumerate(recents):
-                if rec_cols[i + 1].button(
-                    f"{r}",
-                    key=f"rr_{r}",
-                    use_container_width=True,
-                    type="primary" if current == r else "secondary",
-                ):
-                    _set_range(r)
 
 
 def _render_angle_cant_inputs():

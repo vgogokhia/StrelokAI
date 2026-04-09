@@ -10,51 +10,53 @@ from core.session_persist import save_session_cookie, clear_session_cookie
 def render_sidebar_auth():
     if not st.session_state.logged_in:
         st.markdown("### 🔐 Login")
-        
-        # Email login/signup form
-        auth_tab = st.radio("", ["Login", "Sign Up"], horizontal=True, label_visibility="collapsed", key="auth_tab_radio")
-        
-        st.text_input("Username", key="auth_username_input")
-        st.text_input("Password", type="password", key="auth_password_input")
-        
-        # Read from session state (fix for button click timing)
-        username_val = st.session_state.get("auth_username_input", "")
-        password_val = st.session_state.get("auth_password_input", "")
-        
-        if auth_tab == "Login":
-            if st.button("Login", type="primary", use_container_width=True):
-                if username_val and password_val:
-                    success, message = authenticate_user(username_val, password_val)
-                    if success:
-                        st.session_state.logged_in = True
-                        st.session_state.username = username_val
-                        st.session_state.auth_message = f"Welcome, {username_val}!"
-                        try:
-                            save_session_cookie(username_val)
-                        except Exception:
-                            pass
-                        st.rerun()
-                    else:
-                        st.error(message)
-                else:
-                    st.error("Please enter username and password")
-        else:
-            if st.button("Create Account", type="primary", use_container_width=True):
-                if username_val and password_val:
+
+        auth_tab = st.radio(
+            "auth_mode",
+            ["Login", "Sign Up"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key="auth_tab_radio",
+        )
+
+        # Use an st.form so the username + password + submit are processed
+        # together in a single rerun (fixes the race where the submit button
+        # fired before the text inputs committed their values to session_state).
+        is_signup = (auth_tab == "Sign Up")
+        form_key = "signup_form" if is_signup else "login_form"
+        submit_label = "Create Account" if is_signup else "Login"
+
+        with st.form(form_key, clear_on_submit=False):
+            username_val = st.text_input("Username", key=f"{form_key}_username")
+            password_val = st.text_input("Password", type="password", key=f"{form_key}_password")
+            submitted = st.form_submit_button(
+                submit_label, type="primary", use_container_width=True
+            )
+
+        if submitted:
+            username_val = (username_val or "").strip()
+            password_val = password_val or ""
+            if not username_val or not password_val:
+                st.error("Please enter username and password")
+            else:
+                if is_signup:
                     success, message = create_user(username_val, password_val)
-                    if success:
-                        st.session_state.logged_in = True
-                        st.session_state.username = username_val
-                        st.session_state.auth_message = f"Account created! Welcome, {username_val}!"
-                        try:
-                            save_session_cookie(username_val)
-                        except Exception:
-                            pass
-                        st.rerun()
-                    else:
-                        st.error(message)
+                    welcome = f"Account created! Welcome, {username_val}!"
                 else:
-                    st.error("Please enter username and password")
+                    success, message = authenticate_user(username_val, password_val)
+                    welcome = f"Welcome, {username_val}!"
+
+                if success:
+                    st.session_state.logged_in = True
+                    st.session_state.username = username_val
+                    st.session_state.auth_message = welcome
+                    try:
+                        save_session_cookie(username_val)
+                    except Exception:
+                        pass
+                    st.rerun()
+                else:
+                    st.error(message)
         
         # Divider between email and Google
         st.markdown("---")

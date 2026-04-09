@@ -27,18 +27,20 @@ def render_sidebar_profiles():
                     key="rifle_selector",
                     label_visibility="collapsed"
                 )
-                if selected_rifle != "-- Select --":
-                    if st.button("📂 Load Rifle", use_container_width=True):
-                        loaded = load_rifle_profile(st.session_state.username, selected_rifle)
-                        if loaded:
-                            st.session_state.profile.update({
-                                "zero_range": loaded.zero_range,
-                                "sight_height": loaded.sight_height,
-                                "twist_rate": loaded.twist_rate,
-                                "twist_direction": getattr(loaded, "twist_direction", "right"),
-                            })
-                            st.success(f"Loaded '{selected_rifle}'")
-                            st.rerun()
+                # Auto-load on selection change. Track the last loaded name
+                # so re-renders don't keep reloading (and clobbering edits).
+                if selected_rifle != "-- Select --" and \
+                        st.session_state.get("_last_loaded_rifle") != selected_rifle:
+                    loaded = load_rifle_profile(st.session_state.username, selected_rifle)
+                    if loaded:
+                        st.session_state.profile.update({
+                            "zero_range": loaded.zero_range,
+                            "sight_height": loaded.sight_height,
+                            "twist_rate": loaded.twist_rate,
+                            "twist_direction": getattr(loaded, "twist_direction", "right"),
+                        })
+                        st.session_state._last_loaded_rifle = selected_rifle
+                        st.rerun()
             
             st.markdown("**Save Rifle Profile**")
             save_rifle_name = st.text_input("Name:", key="save_rifle_name", placeholder="e.g. Rem700 308Win")
@@ -95,24 +97,25 @@ def render_sidebar_profiles():
                     key="ammo_selector",
                     label_visibility="collapsed"
                 )
-                if selected_ammo != "-- Select --":
-                    if st.button("📂 Load Ammo", use_container_width=True):
-                        loaded = load_cartridge_profile(st.session_state.username, selected_ammo)
-                        if loaded:
-                            st.session_state.profile.update({
-                                "drag_model": loaded.drag_model,
-                                "bc_g7": loaded.bc_g7,
-                                "mass_grains": loaded.mass_grains,
-                                "diameter": loaded.diameter,
-                                "muzzle_velocity": loaded.muzzle_velocity,
-                                "mv_temp_c": getattr(loaded, "mv_temp_c", 15.0),
-                                "temp_sensitivity": getattr(loaded, "temp_sensitivity", 0.1),
-                            })
-                            # Legacy support for profiles saved before G1/G7 update
-                            if hasattr(loaded, 'bc_g1') and loaded.bc_g1 is not None:
-                                st.session_state.profile["bc_g1"] = loaded.bc_g1
-                            st.success(f"Loaded '{selected_ammo}'")
-                            st.rerun()
+                if selected_ammo != "-- Select --" and \
+                        st.session_state.get("_last_loaded_ammo") != selected_ammo:
+                    loaded = load_cartridge_profile(st.session_state.username, selected_ammo)
+                    if loaded:
+                        st.session_state.profile.update({
+                            "drag_model": loaded.drag_model,
+                            "bc_g7": loaded.bc_g7,
+                            "mass_grains": loaded.mass_grains,
+                            "diameter": loaded.diameter,
+                            "muzzle_velocity": loaded.muzzle_velocity,
+                            "mv_temp_c": getattr(loaded, "mv_temp_c", 15.0),
+                            "temp_sensitivity": getattr(loaded, "temp_sensitivity", 0.1),
+                            "bullet_length_in": getattr(loaded, "bullet_length_in", 1.0),
+                        })
+                        # Legacy support for profiles saved before G1/G7 update
+                        if hasattr(loaded, 'bc_g1') and loaded.bc_g1 is not None:
+                            st.session_state.profile["bc_g1"] = loaded.bc_g1
+                        st.session_state._last_loaded_ammo = selected_ammo
+                        st.rerun()
             
             st.markdown("**Save Ammo Profile**")
             save_ammo_name = st.text_input("Name:", key="save_ammo_name", placeholder="e.g. Hornady 175gr")

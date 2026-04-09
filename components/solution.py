@@ -9,8 +9,9 @@ import streamlit as st
 
 from ballistics.solver import calculate_solution
 from ballistics.mv_curve import apply_mv_curve
+from ballistics.truing import true_muzzle_velocity
 from config import DEFAULT_LATITUDE
-from core.units import fmt_velocity, fmt_energy, fmt_range
+from core.units import fmt_velocity, fmt_energy, fmt_range, is_imperial, range_label
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -154,6 +155,27 @@ def render_solution_section(
             </div>
             """, unsafe_allow_html=True)
 
+            # Trajectory graph
+            with st.expander("📈 Trajectory Graph", expanded=False):
+                _render_trajectory_graph(solution, target_range)
+
+            with st.expander("🎯 True MV (match observed drop)", expanded=False):
+                _render_truing_block(
+                    muzzle_velocity=actual_mv,
+                    drag_model=drag_model,
+                    bc_val=bc_val,
+                    mass_grains=mass_grains,
+                    diameter=diameter,
+                    zero_range=zero_range,
+                    temp_c=temp_c,
+                    pressure=pressure,
+                    humidity=humidity,
+                    bullet_length_in=bullet_length_in,
+                    twist_rate_inches=twist_rate_inches,
+                    twist_direction=twist_direction,
+                    sight_height_mm=sight_height_mm,
+                )
+
             with st.expander("📊 Details", expanded=False):
                 data_cols = st.columns(4)
                 with data_cols[0]:
@@ -184,3 +206,192 @@ def render_solution_section(
     except Exception as e:
         st.error(f"Calculation error: {e}")
         st.exception(e)
+
+
+# ---------------------------------------------------------------------------
+# Trajectory graph
+# ---------------------------------------------------------------------------
+
+def _render_trajectory_graph(solution, target_range: float):
+    """Two-panel Plotly chart: drop (primary) and windage (secondary)."""
+    try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+    except ImportError:
+        st.info("Install plotly to see trajectory graphs (pip install plotly).")
+        return
+
+    imperial = is_imperial()
+    rng_scale = 1.09361 if imperial else 1.0
+    rng_label = range_label()
+
+    ranges = [pt.range_m * rng_scale for pt in solution.trajectory]
+    drops_mrad = [pt.drop_mrad for pt in solution.trajectory]
+    wind_mrad = [pt.windage_mrad for pt in solution.trajectory]
+    velocities = [pt.velocity_mps * (3.28084 if imperial else 1.0) for pt in solution.trajectory]
+
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        subplot_titles=("Drop (MRAD) & Velocity", "Windage (MRAD)"),
+        specs=[[{"secondary_y": True}], [{}]],
+    )
+
+    # Top: drop
+    fig.add_trace(
+        go.Scatter(
+            x=ranges, y=drops_mrad,
+            name="Drop (MRAD)",
+            line=dict(color="#ff4444", width=2),
+            hovertemplate="%{x:.0f} " + rng_label + "<br>%{y:.2f} MRAD<extra></extra>",
+        ),
+        row=1, col=1, secondary_y=False,
+    )
+    # Top: velocity on secondary axis
+    fig.add_trace(
+        go.Scatter(
+            x=ranges, y=velocities,
+            name="Velocity",
+            line=dict(color="#4488ff", width=1.5, dash="dot"),
+            hovertemplate="%{x:.0f} " + rng_label + "<br>%{y:.0f} " + ("fps" if imperial else "m/s") + "<extra></extra>",
+        ),
+        row=1, col=1, secondary_y=True,
+    )
+    # Bottom: windage
+    fig.add_trace(
+        go.Scatter(
+            x=ranges, y=wind_mrad,
+            name="Windage",
+            line=dict(color="#44dd88", width=2),
+            hovertemplate="%{x:.0f} " + rng_label + "<br>%{y:.2f} MRAD<extra></extra>",
+        ),
+        row=2, col=1,
+    )
+
+    # Target marker
+    target_pt = solution.at_range(target_range)
+    if target_pt is not None:
+        tr = target_range * rng_scale
+        fig.add_vline(x=tr, line_dash="dash", line_color="#ffaa00", row="all")
+        fig.add_annotation(
+            x=tr, y=target_pt.drop_mrad,
+            text=f"Target {int(tr)}",
+            showarrow=True, arrowhead=2,
+            row=1, col=1,
+            font=dict(color="#ffaa00"),
+        )
+
+    fig.update_layout(
+        height=460,
+        margin=dict(l=10, r=10, t=40, b=10),
+        hovermode="x unified",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(255,255,255,0.03)",
+        font=dict(color="#cccccc"),
+        showlegend=True,
+        legend=dict(orientation="h", y=-0.12, x=0),
+    )
+    fig.update_xaxes(title_text=f"Range ({rng_label})", row=2, col=1,
+                     gridcolor="rgba(255,255,255,0.1)")
+    fig.update_xaxes(gridcolor="rgba(255,255,255,0.1)", row=1, col=1)
+    fig.update_yaxes(title_text="Drop (MRAD)", row=1, col=1, secondary_y=False,
+                     gridcolor="rgba(255,255,255,0.1)")
+    fig.update_yaxes(title_text=("fps" if imperial else "m/s"), row=1, col=1, secondary_y=True,
+                     gridcolor="rgba(255,255,255,0.05)")
+    fig.update_yaxes(title_text="Windage (MRAD)", row=2, col=1,
+                     gridcolor="rgba(255,255,255,0.1)")
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+# ---------------------------------------------------------------------------
+# Truing UI
+# ---------------------------------------------------------------------------
+
+def _render_truing_block(
+    muzzle_velocity: float,
+    drag_model: str,
+    bc_val: float,
+    mass_grains: float,
+    diameter: float,
+    zero_range: float,
+    temp_c: float,
+    pressure: float,
+    humidity: float,
+    bullet_length_in: float,
+    twist_rate_inches: float,
+    twist_direction: str,
+    sight_height_mm: float,
+):
+    """
+    Back-solve the muzzle velocity from an observed drop at a known range.
+
+    Workflow: user shoots at a known distance, notes the actual elevation
+    they dialed/held to hit, enters (range, drop) here, and the app
+    computes the "true" MV that matches.
+    """
+    st.caption(
+        "Enter the range you shot and the actual come-up that hit the target. "
+        "We'll back-solve the muzzle velocity that matches."
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        obs_range = st.number_input(
+            "Observed Range (m)",
+            min_value=100.0, max_value=2000.0,
+            value=float(st.session_state.get("_truing_range", 600.0)),
+            step=25.0, key="truing_range_input",
+        )
+    with c2:
+        obs_drop = st.number_input(
+            "Observed Drop (MRAD, negative = come-up)",
+            min_value=-30.0, max_value=5.0,
+            value=float(st.session_state.get("_truing_drop", -2.50)),
+            step=0.05, format="%.2f",
+            key="truing_drop_input",
+        )
+
+    if st.button("🔧 Compute True MV", use_container_width=True, key="truing_btn"):
+        try:
+            result = true_muzzle_velocity(
+                observed_drop_mrad=obs_drop,
+                observed_range_m=obs_range,
+                initial_mv_guess_mps=muzzle_velocity,
+                bc_g7=bc_val if drag_model == "G7" else None,
+                bc_g1=bc_val if drag_model == "G1" else None,
+                mass_grains=mass_grains,
+                diameter_inches=diameter,
+                zero_range_m=zero_range,
+                temperature_c=temp_c,
+                pressure_mbar=pressure,
+                humidity_pct=humidity,
+                bullet_length_in=bullet_length_in,
+                twist_rate_inches=twist_rate_inches,
+                twist_direction=twist_direction,
+                sight_height_mm=sight_height_mm,
+            )
+        except Exception as exc:
+            st.error(f"Truing failed: {exc}")
+            return
+
+        delta = result["trued_mv_mps"] - muzzle_velocity
+        if result["converged"]:
+            st.success(
+                f"✅ True MV ≈ **{result['trued_mv_mps']:.1f} m/s**  "
+                f"(Δ {delta:+.1f} m/s vs current, "
+                f"{result['iterations']} iters, residual {result['residual_mrad']:+.3f} MRAD)"
+            )
+            st.caption(
+                "To apply: copy this value into the Muzzle Velocity field in the Ammo Settings sidebar."
+            )
+            # Stash for next render so numbers stick
+            st.session_state._truing_range = obs_range
+            st.session_state._truing_drop = obs_drop
+        else:
+            st.warning(
+                f"Did not converge. Best guess: {result['trued_mv_mps']:.1f} m/s "
+                f"(residual {result['residual_mrad']:+.3f} MRAD). "
+                "Check that the observed drop is realistic for this load."
+            )

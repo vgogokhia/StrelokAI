@@ -5,6 +5,7 @@ Version: 1.2.0
 """
 import streamlit as st
 from auth import create_user, authenticate_user
+from core.session_persist import save_session_cookie, clear_session_cookie
 
 def render_sidebar_auth():
     if not st.session_state.logged_in:
@@ -28,6 +29,10 @@ def render_sidebar_auth():
                         st.session_state.logged_in = True
                         st.session_state.username = username_val
                         st.session_state.auth_message = f"Welcome, {username_val}!"
+                        try:
+                            save_session_cookie(username_val)
+                        except Exception:
+                            pass
                         st.rerun()
                     else:
                         st.error(message)
@@ -41,6 +46,10 @@ def render_sidebar_auth():
                         st.session_state.logged_in = True
                         st.session_state.username = username_val
                         st.session_state.auth_message = f"Account created! Welcome, {username_val}!"
+                        try:
+                            save_session_cookie(username_val)
+                        except Exception:
+                            pass
                         st.rerun()
                     else:
                         st.error(message)
@@ -66,6 +75,10 @@ def render_sidebar_auth():
             # Also clear Google auth if used
             if "connected" in st.session_state:
                 st.session_state.connected = False
+            try:
+                clear_session_cookie()
+            except Exception:
+                pass
             st.rerun()
 
 

@@ -72,7 +72,14 @@ def handle_google_oauth():
             st.session_state.logged_in = True
             st.session_state.username = user_info.get("email", "Google User")
             st.session_state.auth_message = f"Welcome, {st.session_state.username}!"
-            
+
+            # Persist across websocket reconnects
+            try:
+                from core.session_persist import save_session_cookie
+                save_session_cookie(st.session_state.username)
+            except Exception:
+                pass
+
             # 4. Clean up URL
             st.query_params.clear()
             return True, ""

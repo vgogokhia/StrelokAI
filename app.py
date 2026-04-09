@@ -35,6 +35,11 @@ from components.range_estimator import render_range_estimator
 # Initialize Session State
 init_session_state()
 
+# Restore logged-in user from persistent cookie (survives idle websocket
+# disconnects that would otherwise log the user out).
+from core.session_persist import restore_session_from_cookie
+restore_session_from_cookie()
+
 # Process URL Params & OAuth Return
 process_query_params()
 from core.google_auth import handle_google_oauth

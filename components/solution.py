@@ -8,7 +8,9 @@ Version: 1.2.0
 import streamlit as st
 
 from ballistics.solver import calculate_solution
+from ballistics.mv_curve import apply_mv_curve
 from config import DEFAULT_LATITUDE
+from core.units import fmt_velocity, fmt_energy, fmt_range
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -33,6 +35,7 @@ def _cached_solution(
     elevation_angle_deg: float,
     cant_angle_deg: float,
     latitude_deg: float,
+    azimuth_deg: float,
 ):
     """Cached wrapper around calculate_solution.
 
@@ -55,7 +58,7 @@ def _cached_solution(
         wind_speed_mps=wind_speed,
         wind_direction_deg=wind_deg,
         latitude_deg=latitude_deg,
-        azimuth_deg=0.0,
+        azimuth_deg=azimuth_deg,
         bullet_length_in=bullet_length_in,
         twist_rate_inches=twist_rate_inches,
         twist_direction=twist_direction,
@@ -86,10 +89,21 @@ def render_solution_section(
         cant_angle_deg = kwargs.get('cant_angle_deg', 0.0)
 
         # Powder-temperature compensated muzzle velocity.
+        mv_curve = kwargs.get('mv_curve')  # Optional {temp_c: mv_mps}
+        actual_mv = apply_mv_curve(
+            base_mv=muzzle_velocity,
+            base_temp_c=mv_temp_c,
+            current_temp_c=temp_c,
+            temp_sensitivity_pct_per_c=temp_sensitivity,
+            mv_curve=mv_curve,
+        )
         temp_diff = temp_c - mv_temp_c
-        actual_mv = muzzle_velocity + muzzle_velocity * (temp_sensitivity / 100.0) * temp_diff
 
-        if abs(temp_diff) > 0.1 and temp_sensitivity > 0:
+        if mv_curve:
+            st.caption(
+                f"🔥 MV from curve: **{actual_mv:.1f} m/s** at {temp_c:.1f}°C"
+            )
+        elif abs(temp_diff) > 0.1 and temp_sensitivity > 0:
             st.caption(
                 f"🔥 Adjusted MV: **{actual_mv:.1f} m/s** "
                 f"(Base: {muzzle_velocity}m/s @ {mv_temp_c}°C)"
@@ -116,6 +130,7 @@ def render_solution_section(
             elevation_angle_deg=_q(elevation_angle_deg, 0.5),
             cant_angle_deg=_q(cant_angle_deg, 0.5),
             latitude_deg=_q(DEFAULT_LATITUDE, 0.1),
+            azimuth_deg=_q(float(st.session_state.get("compass_heading", 0.0)), 5.0),
         )
 
         target_point = solution.at_range(target_range)
@@ -144,9 +159,9 @@ def render_solution_section(
                 with data_cols[0]:
                     st.metric("ToF", f"{target_point.time_s:.2f}s")
                 with data_cols[1]:
-                    st.metric("Velocity", f"{target_point.velocity_mps:.0f} m/s")
+                    st.metric("Velocity", fmt_velocity(target_point.velocity_mps))
                 with data_cols[2]:
-                    st.metric("Energy", f"{target_point.energy_j:.0f} J")
+                    st.metric("Energy", fmt_energy(target_point.energy_j))
                 with data_cols[3]:
                     st.metric("Mach", f"{target_point.mach:.2f}")
                 st.caption(

@@ -6,6 +6,7 @@ Version: 1.0.0
 import streamlit as st
 
 from ballistics.dope_card import build_dope_table, rows_to_csv
+from core.units import is_imperial, range_label, velocity_label
 
 
 def render_dope_card():
@@ -58,14 +59,17 @@ def render_dope_card():
         st.warning("No trajectory data produced; check inputs.")
         return
 
-    # Build a simple tabular view
+    # Build a simple tabular view (respects unit system)
+    imperial = is_imperial()
+    rng_scale = 1.09361 if imperial else 1.0
+    vel_scale = 3.28084 if imperial else 1.0
     table_data = {
-        "Range (m)": [r.range_m for r in rows],
+        f"Range ({range_label()})": [int(round(r.range_m * rng_scale)) for r in rows],
         "Drop (MRAD)": [f"{r.drop_mrad:.2f}" for r in rows],
         "Drop (MOA)": [f"{r.drop_moa:.1f}" for r in rows],
         "Wind 10mph (MRAD)": [f"{r.wind_mrad:.2f}" for r in rows],
         "Wind 5mph (MRAD)": [f"{r.wind_half_mrad:.2f}" for r in rows],
-        "Vel (m/s)": [f"{r.velocity_mps:.0f}" for r in rows],
+        f"Vel ({velocity_label()})": [f"{r.velocity_mps * vel_scale:.0f}" for r in rows],
         "Mach": [f"{r.mach:.2f}" for r in rows],
         "TOF (s)": [f"{r.tof_s:.2f}" for r in rows],
     }

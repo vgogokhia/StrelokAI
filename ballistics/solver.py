@@ -25,6 +25,7 @@ from typing import Optional, Tuple, List
 
 from .atmosphere import Atmosphere, AtmosphericConditions
 from .drag_models import G1_DRAG, G7_DRAG, get_drag_coefficient
+from .cdm import DragCurve, curve_to_drag_table
 
 
 # BC (lb/in^2) sectional-density conversion to SI (kg/m^2): 1 lb/in^2 = 703.0696 kg/m^2.
@@ -51,6 +52,9 @@ class Projectile:
     # Optional velocity-stepped BCs: list of (velocity_fps_floor, bc) pairs,
     # sorted high-to-low. Active segment is the first whose floor <= v_fps.
     bc_segments: Optional[List[Tuple[float, float]]] = None
+    # Optional Custom Drag Model. When set, the solver bypasses G1/G7 and
+    # uses this curve directly. It is treated as absolute (BC is ignored).
+    drag_curve: Optional[DragCurve] = None
 
     @property
     def mass_kg(self) -> float:
@@ -199,16 +203,24 @@ class BallisticSolver:
 
     def _select_drag_model(self):
         proj = self.conditions.projectile
-        if proj.bc_g7:
+        # Precedence: drag_curve (CDM) > bc_g7 > bc_g1
+        if proj.drag_curve is not None:
+            self.drag_table = curve_to_drag_table(proj.drag_curve)
+            self.bc = 1.0  # unused when _use_cdm is True
+            self.drag_model = "CDM"
+            self._use_cdm = True
+        elif proj.bc_g7:
             self.drag_table = G7_DRAG
             self.bc = proj.bc_g7
             self.drag_model = "G7"
+            self._use_cdm = False
         elif proj.bc_g1:
             self.drag_table = G1_DRAG
             self.bc = proj.bc_g1
             self.drag_model = "G1"
+            self._use_cdm = False
         else:
-            raise ValueError("Projectile must have either G1 or G7 BC")
+            raise ValueError("Projectile must have either a drag_curve, G7 BC, or G1 BC")
 
     # --- Physics primitives ------------------------------------------------
 
@@ -231,6 +243,17 @@ class BallisticSolver:
         if v_rel <= 0:
             return 0.0
         cd = get_drag_coefficient(mach, self.drag_table)
+        if self._use_cdm:
+            # Custom Drag Model: Cd is the bullet's *absolute* drag
+            # coefficient (not referenced to G1/G7). Use the raw
+            # projectile sectional density in SI units.
+            #     a = (pi/8) * Cd * rho * v^2 * d^2 / m
+            proj = self.conditions.projectile
+            d_m = proj.diameter_m
+            m_kg = proj.mass_kg
+            if m_kg <= 0:
+                return 0.0
+            return DRAG_SHAPE_FACTOR * cd * self._rho * v_rel * v_rel * (d_m * d_m) / m_kg
         if _LEGACY_DRAG:
             # Legacy path for A/B comparison only. Scales by density ratio
             # and uses the old hand-tuned retardation constant.
@@ -304,7 +327,27 @@ class BallisticSolver:
         return aj_mrad
 
     def _coriolis_effect(self, tof_s: float, range_m: float) -> Tuple[float, float]:
-        """Coriolis deflection (vertical_m, horizontal_m) at target."""
+        """
+        Coriolis deflection (vertical_m, horizontal_m) at target.
+
+        Derivation (point-mass approximation):
+          * Horizontal Coriolis deflects the bullet to the right of its
+            path in the N hemisphere and to the left in the S hemisphere,
+            independent of azimuth:
+                d_horiz = omega * sin(lat) * v * tof^2
+                        = omega * sin(lat) * range * tof
+          * Eotvos vertical effect: a bullet fired with an eastward
+            component is effectively lifted (apparent gravity reduced);
+            westward is heavier. The acceleration magnitude is
+                a_vert = 2 * omega * cos(lat) * v_east
+            with v_east = v * sin(az), az measured clockwise from true
+            north. Integrating twice gives the deflection:
+                d_vert = omega * cos(lat) * sin(az) * v * tof^2
+                       = omega * cos(lat) * sin(az) * range * tof
+            Positive d_vert means the bullet lands higher than it would
+            in a non-rotating frame; it is added to the drop field with
+            the same sign convention as other vertical corrections.
+        """
         lat = math.radians(self.conditions.latitude_deg)
         az = math.radians(self.conditions.azimuth_deg)
         omega = self.EARTH_ROTATION_RAD_S
@@ -545,6 +588,7 @@ def calculate_solution(
     elevation_angle_deg: float = 0.0,
     cant_angle_deg: float = 0.0,
     bc_segments: Optional[List[Tuple[float, float]]] = None,
+    drag_curve: Optional[DragCurve] = None,
 ) -> BallisticSolution:
     """Quick calculation with minimal setup (kwargs-first for cache keying)."""
     projectile = Projectile(
@@ -554,6 +598,7 @@ def calculate_solution(
         bc_g7=bc_g7,
         length_inches=bullet_length_in,
         bc_segments=bc_segments,
+        drag_curve=drag_curve,
     )
     rifle = Rifle(
         muzzle_velocity_mps=muzzle_velocity_mps,

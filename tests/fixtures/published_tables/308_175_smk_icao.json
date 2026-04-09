@@ -1,0 +1,26 @@
+{
+  "label": ".308 Win 175gr SMK (JBM reference, ICAO)",
+  "source": "JBM Ballistics (http://www.jbmballistics.com), G7 BC 0.243, MV 792 m/s, zero 100 m, wind 4.47 m/s (10 mph) from 9 o'clock, ICAO standard atmosphere",
+  "inputs": {
+    "muzzle_velocity_mps": 792.0,
+    "bc_g7": 0.243,
+    "mass_grains": 175,
+    "diameter_inches": 0.308,
+    "bullet_length_in": 1.24,
+    "twist_rate_inches": 11.25,
+    "zero_range_m": 100,
+    "temperature_c": 15.0,
+    "pressure_mbar": 1013.25,
+    "humidity_pct": 0.0,
+    "wind_speed_mps": 4.47,
+    "wind_direction_deg": 270.0,
+    "latitude_deg": 41.7
+  },
+  "expected": [
+    {"range_m": 200, "drop_mrad_min": -0.95, "drop_mrad_max": -0.55, "vel_mps_min": 690, "vel_mps_max": 730},
+    {"range_m": 400, "drop_mrad_min": -2.80, "drop_mrad_max": -2.30, "vel_mps_min": 605, "vel_mps_max": 650},
+    {"range_m": 600, "drop_mrad_min": -5.20, "drop_mrad_max": -4.55, "vel_mps_min": 530, "vel_mps_max": 575},
+    {"range_m": 800, "drop_mrad_min": -8.15, "drop_mrad_max": -7.20, "vel_mps_min": 455, "vel_mps_max": 495},
+    {"range_m": 1000, "drop_mrad_min": -11.85, "drop_mrad_max": -10.40, "vel_mps_min": 380, "vel_mps_max": 425}
+  ]
+}

@@ -37,6 +37,9 @@ def init_session_state():
     if "theme" not in st.session_state:
         st.session_state.theme = "dark"
 
+    if "units" not in st.session_state:
+        st.session_state.units = "metric"
+
     if "target_range" not in st.session_state:
         st.session_state.target_range = 500
     if "recent_ranges" not in st.session_state:

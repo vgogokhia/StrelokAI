@@ -5,7 +5,7 @@ Version: 1.1.0
 """
 import json
 from dataclasses import dataclass, asdict, field
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pathlib import Path
 from datetime import datetime
 
@@ -55,6 +55,8 @@ class CartridgeProfile:
     description: str = ""
     bc_g1: Optional[float] = None  # Optional G1 BC
     bc_segments: Optional[List[List[float]]] = None  # Stepped BC: [[floor_fps, bc], ...]
+    # Optional non-linear MV curve: {temp_c: mv_mps}. Overrides temp_sensitivity.
+    mv_curve: Optional[Dict[str, float]] = None
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
 

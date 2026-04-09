@@ -55,8 +55,9 @@ def render_sidebar_profiles():
                     )
                     success, msg = save_rifle_profile(st.session_state.username, new_rifle)
                     if success:
-                        st.success("Saved!")
-                        st.rerun()
+                        st.toast(f"✅ Rifle '{save_rifle_name}' saved", icon="✅")
+                        st.success(f"✅ Rifle '{save_rifle_name}' saved")
+                        st.session_state._last_loaded_rifle = save_rifle_name
                     else:
                         st.error(msg)
                 else:
@@ -145,8 +146,9 @@ def render_sidebar_profiles():
                     )
                     success, msg = save_cartridge_profile(st.session_state.username, new_ammo)
                     if success:
-                        st.success("Saved!")
-                        st.rerun()
+                        st.toast(f"✅ Ammo '{save_ammo_name}' saved", icon="✅")
+                        st.success(f"✅ Ammo '{save_ammo_name}' saved")
+                        st.session_state._last_loaded_ammo = save_ammo_name
                     else:
                         st.error(msg)
                 else:

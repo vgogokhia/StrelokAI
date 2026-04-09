@@ -167,6 +167,7 @@ def render_solution_section(
                     mass_grains=mass_grains,
                     diameter=diameter,
                     zero_range=zero_range,
+                    target_range=target_range,
                     temp_c=temp_c,
                     pressure=pressure,
                     humidity=humidity,
@@ -316,6 +317,7 @@ def _render_truing_block(
     mass_grains: float,
     diameter: float,
     zero_range: float,
+    target_range: float,
     temp_c: float,
     pressure: float,
     humidity: float,
@@ -325,33 +327,27 @@ def _render_truing_block(
     sight_height_mm: float,
 ):
     """
-    Back-solve the muzzle velocity from an observed drop at a known range.
+    Back-solve the muzzle velocity from an observed drop at the current
+    target range.
 
-    Workflow: user shoots at a known distance, notes the actual elevation
-    they dialed/held to hit, enters (range, drop) here, and the app
-    computes the "true" MV that matches.
+    Workflow: set the target distance at the top of the page to match
+    where you actually shot, enter the real come-up that hit the target,
+    and this computes the "true" MV.
     """
     st.caption(
-        "Enter the range you shot and the actual come-up that hit the target. "
-        "We'll back-solve the muzzle velocity that matches."
+        f"Using current target range: **{int(target_range)} m**. "
+        "Enter the actual come-up that hit the target and we'll "
+        "back-solve the muzzle velocity that matches."
     )
 
-    c1, c2 = st.columns(2)
-    with c1:
-        obs_range = st.number_input(
-            "Observed Range (m)",
-            min_value=100.0, max_value=2000.0,
-            value=float(st.session_state.get("_truing_range", 600.0)),
-            step=25.0, key="truing_range_input",
-        )
-    with c2:
-        obs_drop = st.number_input(
-            "Observed Drop (MRAD, negative = come-up)",
-            min_value=-30.0, max_value=5.0,
-            value=float(st.session_state.get("_truing_drop", -2.50)),
-            step=0.05, format="%.2f",
-            key="truing_drop_input",
-        )
+    obs_drop = st.number_input(
+        "Observed Drop (MRAD, negative = come-up)",
+        min_value=-30.0, max_value=5.0,
+        value=float(st.session_state.get("_truing_drop", -2.50)),
+        step=0.05, format="%.2f",
+        key="truing_drop_input",
+    )
+    obs_range = float(target_range)
 
     if st.button("🔧 Compute True MV", use_container_width=True, key="truing_btn"):
         try:
@@ -386,8 +382,7 @@ def _render_truing_block(
             st.caption(
                 "To apply: copy this value into the Muzzle Velocity field in the Ammo Settings sidebar."
             )
-            # Stash for next render so numbers stick
-            st.session_state._truing_range = obs_range
+            # Stash drop for next render so the value sticks
             st.session_state._truing_drop = obs_drop
         else:
             st.warning(

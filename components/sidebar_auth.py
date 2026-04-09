@@ -99,10 +99,25 @@ def _render_google_login():
         # navigates the parent document in place.
         if st.button("🔵 Sign in with Google", use_container_width=True, key="google_signin_btn"):
             import streamlit.components.v1 as components
+            # components.html injects its own iframe. window.parent is the
+            # Streamlit app iframe; window.top is the outermost browser
+            # window. Try top first (works on most embeddings including
+            # Streamlit Cloud) and fall back to parent if that's blocked.
             components.html(
                 f"""
                 <script>
-                    window.parent.location.href = "{auth_url}";
+                    (function() {{
+                        var url = {auth_url!r};
+                        try {{
+                            window.top.location.href = url;
+                        }} catch (e) {{
+                            try {{
+                                window.parent.location.href = url;
+                            }} catch (e2) {{
+                                window.location.href = url;
+                            }}
+                        }}
+                    }})();
                 </script>
                 """,
                 height=0,

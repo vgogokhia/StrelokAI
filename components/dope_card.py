@@ -15,19 +15,30 @@ def render_dope_card():
 
     profile = st.session_state.profile
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        start = st.number_input("Start (m)", min_value=50, max_value=2000, value=100, step=50)
-    with col2:
-        end = st.number_input("End (m)", min_value=100, max_value=2500, value=1200, step=50)
-    with col3:
-        step = st.number_input("Step (m)", min_value=25, max_value=200, value=50, step=25)
+    with st.expander("⚙ Card settings", expanded=False):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            start = st.number_input(
+                "Start (m)", min_value=50, max_value=2000, value=100, step=50,
+                key="dope_start",
+            )
+        with col2:
+            end = st.number_input(
+                "End (m)", min_value=100, max_value=2500, value=1200, step=50,
+                key="dope_end",
+            )
+        with col3:
+            step = st.number_input(
+                "Step (m)", min_value=25, max_value=200, value=50, step=25,
+                key="dope_step",
+            )
 
-    use_current = st.checkbox(
-        "Use current atmosphere",
-        value=True,
-        help="When on, uses the temperature/pressure/humidity from the main Calculator tab. Otherwise uses ICAO standard.",
-    )
+        use_current = st.checkbox(
+            "Use current atmosphere",
+            value=True,
+            help="When on, uses the temperature/pressure/humidity from the main Calculator tab. Otherwise uses ICAO standard.",
+            key="dope_use_current_atmo",
+        )
 
     if use_current:
         temp_c = float(st.session_state.get("temp_c", 15.0))

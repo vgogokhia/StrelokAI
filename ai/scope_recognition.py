@@ -144,8 +144,8 @@ def identify_scope(
 
     try:
         genai.configure(api_key=key)
-        # gemini-1.5-flash was retired April 2026; use the current fast vision model.
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        # Use the always-current alias so we don't chase deprecations.
+        model = genai.GenerativeModel("gemini-flash-latest")
 
         # Load image as PIL (SDK accepts PIL.Image directly — raw bytes path
         # is brittle because of mime-type mismatches).

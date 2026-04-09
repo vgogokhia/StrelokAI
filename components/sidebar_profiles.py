@@ -40,6 +40,7 @@ def render_sidebar_profiles():
                             "twist_direction": getattr(loaded, "twist_direction", "right"),
                         })
                         st.session_state._last_loaded_rifle = selected_rifle
+                        st.session_state.save_rifle_name = selected_rifle
                         st.rerun()
             
             st.markdown("**Save Rifle Profile**")
@@ -119,6 +120,7 @@ def render_sidebar_profiles():
                             "bullet_length_in": getattr(loaded, "bullet_length_in", 1.0),
                         })
                         st.session_state._last_loaded_ammo = selected_ammo
+                        st.session_state.save_ammo_name = selected_ammo
                         st.rerun()
             
             st.markdown("**Save Ammo Profile**")

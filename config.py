@@ -15,7 +15,7 @@ DEFAULT_LONGITUDE = 44.8271
 
 # App settings
 APP_NAME = "StrelokAI"
-VERSION = "0.4.9"
+VERSION = "0.4.10"
 
 # Unit preferences
 DEFAULT_DISTANCE_UNIT = "meters"  # meters or yards

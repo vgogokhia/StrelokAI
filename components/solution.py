@@ -336,17 +336,27 @@ def _render_truing_block(
     """
     st.caption(
         f"Using current target range: **{int(target_range)} m**. "
-        "Enter the actual come-up that hit the target and we'll "
-        "back-solve the muzzle velocity that matches."
+        "Enter the elevation (MRAD) you dialed or held UP to hit the target. "
+        "We'll back-solve the muzzle velocity that matches."
     )
 
-    obs_drop = st.number_input(
-        "Observed Drop (MRAD, negative = come-up)",
-        min_value=-30.0, max_value=5.0,
-        value=float(st.session_state.get("_truing_drop", -2.50)),
+    dial_up_mrad = st.number_input(
+        "Dialed UP Elevation (MRAD)",
+        min_value=0.0, max_value=30.0,
+        value=float(st.session_state.get("_truing_dial", 2.50)),
         step=0.05, format="%.2f",
-        key="truing_drop_input",
+        key="truing_dial_input",
+        help=(
+            "The actual come-up you used (positive number). "
+            "If you had to dial UP an additional amount because the bullet "
+            "hit LOW, add that to your original come-up. "
+            "If the bullet hit HIGH, subtract."
+        ),
     )
+    # The solver reports drop_mrad as negative when the bullet is below
+    # the line of sight (i.e. you had to dial UP), so the observed drop
+    # the back-solver needs is -dial_up.
+    obs_drop = -dial_up_mrad
     obs_range = float(target_range)
 
     if st.button("🔧 Compute True MV", use_container_width=True, key="truing_btn"):
@@ -382,8 +392,8 @@ def _render_truing_block(
             st.caption(
                 "To apply: copy this value into the Muzzle Velocity field in the Ammo Settings sidebar."
             )
-            # Stash drop for next render so the value sticks
-            st.session_state._truing_drop = obs_drop
+            # Stash dial value for next render so the value sticks
+            st.session_state._truing_dial = dial_up_mrad
         else:
             st.warning(
                 f"Did not converge. Best guess: {result['trued_mv_mps']:.1f} m/s "

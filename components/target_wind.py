@@ -101,7 +101,7 @@ def _render_angle_cant_inputs():
 
 def render_wind_section(col):
     with col:
-      with st.expander("💨 Wind", expanded=True):
+      with st.expander("💨 Wind", expanded=False):
         wind_speed = st.slider("Speed (m/s)", 0.0, 15.0, float(st.session_state.wind_speed), 0.5)
         st.session_state.wind_speed = wind_speed
         

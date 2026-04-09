@@ -92,36 +92,19 @@ def _render_google_login():
         from core.google_auth import get_google_auth_url
         auth_url = get_google_auth_url(client_id, redirect_uri)
 
-        # Streamlit button that triggers a JS redirect in the current tab.
-        # st.link_button always opens a new tab; plain HTML anchors with
-        # target="_top" are blocked inside Streamlit Cloud's iframe
-        # sandbox. Using window.open(url, "_self") from st.components.html
-        # navigates the parent document in place.
-        if st.button("🔵 Sign in with Google", use_container_width=True, key="google_signin_btn"):
-            import streamlit.components.v1 as components
-            # components.html injects its own iframe. window.parent is the
-            # Streamlit app iframe; window.top is the outermost browser
-            # window. Try top first (works on most embeddings including
-            # Streamlit Cloud) and fall back to parent if that's blocked.
-            components.html(
-                f"""
-                <script>
-                    (function() {{
-                        var url = {auth_url!r};
-                        try {{
-                            window.top.location.href = url;
-                        }} catch (e) {{
-                            try {{
-                                window.parent.location.href = url;
-                            }} catch (e2) {{
-                                window.location.href = url;
-                            }}
-                        }}
-                    }})();
-                </script>
-                """,
-                height=0,
-            )
+        # Streamlit Cloud's iframe sandbox blocks both window.top
+        # navigation (so components.html redirects do nothing) and
+        # window.close() on user-opened tabs. The only reliable option is
+        # st.link_button, which opens Google in a new tab. The original
+        # tab still picks up the login via the persistent cookie on its
+        # next reconnect, so both tabs end up logged in and either one
+        # can be closed.
+        st.link_button(
+            "🔵 Sign in with Google",
+            url=auth_url,
+            use_container_width=True,
+        )
+        st.caption("Opens in a new tab. You can close either tab after logging in.")
     else:
         st.button("🔵 Sign in with Google", disabled=True, use_container_width=True)
         st.caption("Google credentials not configured")

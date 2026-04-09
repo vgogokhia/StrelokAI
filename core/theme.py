@@ -67,19 +67,18 @@ def apply_theme(theme: str = "dark"):
         div[data-testid="stSidebarCollapsedControl"] button,
         [data-testid="stSidebar"] button[kind="headerNoPadding"],
         header button[kind="headerNoPadding"]:first-of-type {
-            background: #c62828 !important;
-            border: 2px solid #ff5252 !important;
-            border-radius: 10px !important;
-            width: 44px !important;
-            height: 44px !important;
-            min-width: 44px !important;
-            min-height: 44px !important;
-            box-shadow: 0 0 14px rgba(255, 82, 82, 0.75),
-                        0 0 4px rgba(0, 0, 0, 0.6) !important;
-            opacity: 1 !important;
+            background: #2a2a2a !important;
+            border: 1px solid #555 !important;
+            border-radius: 8px !important;
+            width: 36px !important;
+            height: 36px !important;
+            min-width: 36px !important;
+            min-height: 36px !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+            opacity: 0.9 !important;
             visibility: visible !important;
             z-index: 999999 !important;
-            padding: 6px !important;
+            padding: 5px !important;
         }
         .strelok-sidebar-toggle svg,
         button[data-testid="stSidebarCollapseButton"] svg,
@@ -90,12 +89,12 @@ def apply_theme(theme: str = "dark"):
         div[data-testid="stSidebarCollapsedControl"] button svg,
         [data-testid="stSidebar"] button[kind="headerNoPadding"] svg,
         header button[kind="headerNoPadding"]:first-of-type svg {
-            width: 28px !important;
-            height: 28px !important;
-            color: #ffffff !important;
-            fill: #ffffff !important;
-            stroke: #ffffff !important;
-            stroke-width: 2.5 !important;
+            width: 20px !important;
+            height: 20px !important;
+            color: #d0d0d0 !important;
+            fill: #d0d0d0 !important;
+            stroke: #d0d0d0 !important;
+            stroke-width: 2 !important;
         }
         .strelok-sidebar-toggle:hover,
         button[data-testid="stSidebarCollapseButton"]:hover,
@@ -103,9 +102,9 @@ def apply_theme(theme: str = "dark"):
         button[data-testid="collapsedControl"]:hover,
         button[aria-label="Close sidebar"]:hover,
         button[aria-label="Open sidebar"]:hover {
-            background: #e53935 !important;
-            box-shadow: 0 0 20px rgba(255, 82, 82, 1),
-                        0 0 6px rgba(0, 0, 0, 0.6) !important;
+            background: #3a3a3a !important;
+            border-color: #4CAF50 !important;
+            opacity: 1 !important;
         }
         </style>
         <script>

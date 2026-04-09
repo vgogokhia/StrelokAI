@@ -55,6 +55,33 @@ def apply_theme(theme: str = "dark"):
             border-bottom: 1px solid #333;
             padding-bottom: 5px;
         }
+        /* Make the sidebar collapse/expand control much more visible. */
+        button[data-testid="stSidebarCollapseButton"],
+        button[data-testid="stSidebarCollapsedControl"],
+        button[kind="headerNoPadding"][aria-label*="sidebar" i] {
+            background: #1f2a44 !important;
+            border: 1px solid #4CAF50 !important;
+            border-radius: 8px !important;
+            width: 40px !important;
+            height: 40px !important;
+            box-shadow: 0 0 10px rgba(76,175,80,0.35) !important;
+            opacity: 1 !important;
+            z-index: 9999 !important;
+        }
+        button[data-testid="stSidebarCollapseButton"] svg,
+        button[data-testid="stSidebarCollapsedControl"] svg,
+        button[kind="headerNoPadding"][aria-label*="sidebar" i] svg {
+            width: 24px !important;
+            height: 24px !important;
+            color: #4CAF50 !important;
+            fill: #4CAF50 !important;
+            stroke: #4CAF50 !important;
+        }
+        button[data-testid="stSidebarCollapseButton"]:hover,
+        button[data-testid="stSidebarCollapsedControl"]:hover {
+            background: #2b3a5c !important;
+            box-shadow: 0 0 14px rgba(76,175,80,0.6) !important;
+        }
         </style>
         """, unsafe_allow_html=True)
     elif theme == "red":

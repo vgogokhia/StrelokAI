@@ -52,16 +52,9 @@ apply_theme(st.session_state.theme)
 # Sidebar - Settings
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
-    
-    # Theme selector
-    theme_index = 1 if st.session_state.theme == "red" else 0
-    theme = st.radio("Theme", ["Dark", "Red (NVG)"], index=theme_index, horizontal=True,
-                     key="theme_radio", on_change=lambda: setattr(st.session_state, 'theme', 'red' if 'Red' in st.session_state.theme_radio else 'dark'))
 
-    if "Red" in theme:
-        st.session_state.theme = "red"
-    else:
-        st.session_state.theme = "dark"
+    # Theme is fixed to Dark for now (selector hidden).
+    st.session_state.theme = "dark"
 
     # Unit system selector
     units_index = 1 if st.session_state.get("units", "metric") == "imperial" else 0

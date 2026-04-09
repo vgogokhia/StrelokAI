@@ -25,7 +25,6 @@ from components.sidebar_profiles import render_sidebar_profiles
 from components.target_wind import render_target_section, render_wind_section
 from components.atmosphere import render_atmosphere_section
 from components.solution import render_solution_section
-from components.ai_features import render_ai_features
 from components.dope_card import render_dope_card
 from components.reticle import render_reticle
 from components.turret import render_turret
@@ -119,10 +118,6 @@ with tab_calc:
         elevation_angle_deg=float(st.session_state.get("shot_angle_deg", 0.0)),
         cant_angle_deg=float(st.session_state.get("cant_angle_deg", 0.0)),
     )
-
-    # AI Features Section
-    st.divider()
-    render_ai_features()
 
 with tab_dope:
     render_dope_card()

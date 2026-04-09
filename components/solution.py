@@ -193,17 +193,6 @@ def render_solution_section(
                     f"Spin Drift={solution.spin_drift_m*1000/target_range:+.2f} MRAD"
                 )
 
-            with st.expander("📊 Full Trajectory Table"):
-                st.markdown("| Range | Drop | Drop | Windage | Velocity | ToF |")
-                st.markdown("|:---:|:---:|:---:|:---:|:---:|:---:|")
-                st.markdown("| (m) | (m) | (MRAD) | (MRAD) | (m/s) | (s) |")
-                for pt in solution.trajectory:
-                    if pt.range_m % 100 == 0 or pt.range_m == target_range:
-                        st.markdown(
-                            f"| {pt.range_m:.0f} | {pt.drop_m:.3f} | {pt.drop_mrad:.2f} | "
-                            f"{pt.windage_mrad:.2f} | {pt.velocity_mps:.0f} | {pt.time_s:.3f} |"
-                        )
-
     except Exception as e:
         st.error(f"Calculation error: {e}")
         st.exception(e)

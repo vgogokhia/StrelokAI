@@ -3,15 +3,21 @@ AI Scope Recognition using Gemini Vision API
 Takes a photo of a scope and identifies the model to auto-populate settings
 """
 import os
+import io
 from dataclasses import dataclass
 from typing import Optional
-import base64
 
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
 
 # Common scope database with settings
 SCOPE_DATABASE = {
@@ -127,34 +133,29 @@ def identify_scope(
         ScopeInfo if identified, None otherwise
     """
     key = api_key or os.getenv("GEMINI_API_KEY", "")
-    
+
     if not key or key == "your-gemini-api-key-here":
-        # Demo mode - return a sample scope
-        return ScopeInfo(
-            manufacturer="Demo",
-            model="Add Gemini API key for real recognition",
-            click_value_mrad=0.1,
-            max_elevation_mrad=25.0,
-            turret_direction="cw_up",
-            reticle_options=["MIL-R"],
-            confidence=0.0
-        )
-    
+        return None  # Demo mode — UI will show a clear warning.
+
     if not GEMINI_AVAILABLE:
-        print("Gemini API not available. Install google-generativeai package.")
-        return None
-    
+        raise RuntimeError("google-generativeai not installed")
+    if not PIL_AVAILABLE:
+        raise RuntimeError("Pillow not installed")
+
     try:
         genai.configure(api_key=key)
         model = genai.GenerativeModel("gemini-1.5-flash")
-        
-        # Load image
-        if image_path:
+
+        # Load image as PIL (SDK accepts PIL.Image directly — raw bytes path
+        # is brittle because of mime-type mismatches).
+        if image_path and not image_bytes:
             with open(image_path, "rb") as f:
                 image_bytes = f.read()
-        
         if not image_bytes:
             return None
+        pil_image = Image.open(io.BytesIO(image_bytes))
+        if pil_image.mode != "RGB":
+            pil_image = pil_image.convert("RGB")
         
         # Create prompt for scope identification
         prompt = """Analyze this image of a rifle scope. Identify the manufacturer and model.
@@ -186,11 +187,8 @@ MODEL: Unknown
 CONFIDENCE: low
 """
         
-        # Send to Gemini
-        response = model.generate_content([
-            prompt,
-            {"mime_type": "image/jpeg", "data": base64.b64encode(image_bytes).decode()}
-        ])
+        # Send to Gemini (PIL Image is natively supported)
+        response = model.generate_content([prompt, pil_image])
         
         # Parse response
         text = response.text
@@ -235,9 +233,9 @@ CONFIDENCE: low
             confidence=confidence * 0.8  # Lower confidence for DB miss
         )
         
-    except Exception as e:
-        print(f"Scope recognition error: {e}")
-        return None
+    except Exception:
+        # Re-raise so the UI can display the actual error instead of a silent None.
+        raise
 
 
 def get_scope_from_database(manufacturer: str, model: str) -> Optional[ScopeInfo]:

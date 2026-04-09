@@ -17,19 +17,27 @@ def render_ai_features():
         uploaded_file = st.file_uploader("Upload scope photo", type=["jpg", "jpeg", "png"])
         
         if uploaded_file:
-            with st.spinner("Analyzing scope image..."):
-                scope_info = identify_scope(
-                    image_bytes=uploaded_file.getvalue(),
-                    api_key=GEMINI_API_KEY,
-                )
-            if scope_info and scope_info.manufacturer != "Demo":
+            try:
+                with st.spinner("Analyzing scope image with Gemini..."):
+                    scope_info = identify_scope(
+                        image_bytes=uploaded_file.getvalue(),
+                        api_key=GEMINI_API_KEY,
+                    )
+            except Exception as e:
+                st.error(f"Scope recognition failed: {e}")
+                scope_info = None
+
+            if scope_info and scope_info.manufacturer not in ("Demo", "Unknown"):
                 st.success(f"Identified: **{scope_info.manufacturer} {scope_info.model}**")
                 st.write(f"- Click Value: {scope_info.click_value_mrad} MRAD")
                 st.write(f"- Max Elevation: {scope_info.max_elevation_mrad} MRAD")
                 st.write(f"- Reticles: {', '.join(scope_info.reticle_options)}")
                 st.caption(f"Confidence: {scope_info.confidence*100:.0f}%")
-            else:
-                st.warning("Could not identify scope. Try a clearer photo showing the brand/model markings.")
+            elif scope_info and scope_info.manufacturer == "Unknown":
+                st.warning(
+                    "Gemini couldn't read a brand/model off this image. "
+                    "Try a closer shot of the turret or magnification ring where the markings are legible."
+                )
     
     with ai_cols[1]:
         st.markdown("#### 🔭 Supported Scopes")

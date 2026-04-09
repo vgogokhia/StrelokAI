@@ -91,13 +91,29 @@ def _render_google_login():
     if client_id and redirect_uri:
         from core.google_auth import get_google_auth_url
         auth_url = get_google_auth_url(client_id, redirect_uri)
-        
-        # Use Streamlit's native link_button which is designed to safely open external links
-        # breaking out of any iframes or sandboxes smoothly.
-        st.link_button(
-            "🔵 Sign in with Google",
-            url=auth_url,
-            use_container_width=True
+
+        # Use a raw HTML anchor with target="_top" so the OAuth redirect
+        # replaces the current (top-level) tab instead of opening a new
+        # one. st.link_button opens in a new tab, which leaves the old
+        # tab orphaned after the user returns from Google.
+        st.markdown(
+            f"""
+            <a href="{auth_url}" target="_top" style="
+                display:block;
+                width:100%;
+                box-sizing:border-box;
+                text-align:center;
+                padding:0.5rem 0.75rem;
+                background-color:#ffffff;
+                color:#444444;
+                border:1px solid rgba(49,51,63,0.2);
+                border-radius:0.5rem;
+                text-decoration:none;
+                font-weight:600;
+                font-family:'Source Sans Pro', sans-serif;
+            ">🔵 Sign in with Google</a>
+            """,
+            unsafe_allow_html=True,
         )
     else:
         st.button("🔵 Sign in with Google", disabled=True, use_container_width=True)

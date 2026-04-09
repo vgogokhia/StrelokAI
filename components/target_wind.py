@@ -27,8 +27,7 @@ def _on_slider_change():
 
 def render_target_section(col):
     with col:
-        st.markdown("#### Target")
-
+      with st.expander("🎯 Target", expanded=True):
         # Seed widget-owned keys from target_range on first render (and whenever
         # target_range was changed externally, e.g. by a quick-range button).
         tr = int(st.session_state.target_range)
@@ -102,8 +101,7 @@ def _render_angle_cant_inputs():
 
 def render_wind_section(col):
     with col:
-        # Wind Input
-        st.markdown("### 💨 Wind")
+      with st.expander("💨 Wind", expanded=True):
         wind_speed = st.slider("Speed (m/s)", 0.0, 15.0, float(st.session_state.wind_speed), 0.5)
         st.session_state.wind_speed = wind_speed
         

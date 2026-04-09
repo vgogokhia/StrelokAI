@@ -336,12 +336,12 @@ def _render_truing_block(
     """
     st.caption(
         f"Using current target range: **{int(target_range)} m**. "
-        "Enter the elevation (MRAD) you dialed or held UP to hit the target. "
+        "Enter the elevation (MRAD) you ACTUALLY dialed or held UP to hit the target. "
         "We'll back-solve the muzzle velocity that matches."
     )
 
     dial_up_mrad = st.number_input(
-        "Dialed UP Elevation (MRAD)",
+        "Actual dialed UP Elevation (MRAD)",
         min_value=0.0, max_value=30.0,
         value=float(st.session_state.get("_truing_dial", 2.50)),
         step=0.05, format="%.2f",

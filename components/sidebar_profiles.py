@@ -32,10 +32,10 @@ def render_sidebar_profiles():
                         loaded = load_rifle_profile(st.session_state.username, selected_rifle)
                         if loaded:
                             st.session_state.profile.update({
-                                "muzzle_velocity": loaded.muzzle_velocity,
                                 "zero_range": loaded.zero_range,
                                 "sight_height": loaded.sight_height,
                                 "twist_rate": loaded.twist_rate,
+                                "twist_direction": getattr(loaded, "twist_direction", "right"),
                             })
                             st.success(f"Loaded '{selected_rifle}'")
                             st.rerun()

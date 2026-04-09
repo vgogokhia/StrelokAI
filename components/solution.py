@@ -146,12 +146,10 @@ def render_solution_section(
             st.markdown(f"""
             <div class="main-solution">
                 <div class="elevation-display">{elevation_clicks} CLICKS</div>
-                <div style="font-size: 24px; color: #888;">ELEVATION {elev_dir}</div>
-                <div style="font-size: 14px; color: #666;">({abs(target_point.drop_mrad):.2f} MRAD)</div>
-                <div style="margin-top: 20px;"></div>
+                <div style="font-size: 15px; color: #888; letter-spacing:1px;">ELEVATION {elev_dir} · {abs(target_point.drop_mrad):.2f} MRAD</div>
+                <div style="margin-top: 10px;"></div>
                 <div class="windage-display">{windage_clicks} {wind_dir}</div>
-                <div style="font-size: 18px; color: #666;">WINDAGE</div>
-                <div style="font-size: 14px; color: #555;">({abs(target_point.windage_mrad):.2f} MRAD)</div>
+                <div style="font-size: 13px; color: #666; letter-spacing:1px;">WINDAGE · {abs(target_point.windage_mrad):.2f} MRAD</div>
             </div>
             """, unsafe_allow_html=True)
 

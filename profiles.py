@@ -12,6 +12,14 @@ from datetime import datetime
 from auth import get_user_data_dir
 
 
+def _filter_known(cls, data: dict) -> dict:
+    """Keep only keys that are fields of the dataclass. Unknown keys are
+    ignored for forward-compat, so newer profile files still load in older
+    code that doesn't know about every field."""
+    known = {f.name for f in cls.__dataclass_fields__.values()}
+    return {k: v for k, v in data.items() if k in known}
+
+
 @dataclass
 class RifleProfile:
     """Rifle configuration profile"""
@@ -19,16 +27,17 @@ class RifleProfile:
     zero_range: float  # meters
     sight_height: float  # mm
     twist_rate: float  # 1:X inches
+    twist_direction: str = "right"  # "right" or "left"
     description: str = ""
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    
+
     def to_dict(self) -> dict:
         return asdict(self)
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "RifleProfile":
-        return cls(**data)
+        return cls(**_filter_known(cls, data))
 
 
 @dataclass
@@ -42,17 +51,19 @@ class CartridgeProfile:
     diameter: float  # inches
     mv_temp_c: float = 15.0  # Temperature at which MV was measured
     temp_sensitivity: float = 0.1  # % change in MV per 1°C
+    bullet_length_in: float = 1.0  # Bullet length (inches) for Miller stability
     description: str = ""
     bc_g1: Optional[float] = None  # Optional G1 BC
+    bc_segments: Optional[List[List[float]]] = None  # Stepped BC: [[floor_fps, bc], ...]
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    
+
     def to_dict(self) -> dict:
         return asdict(self)
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "CartridgeProfile":
-        return cls(**data)
+        return cls(**_filter_known(cls, data))
 
 
 def _get_profiles_file(username: str, profile_type: str) -> Path:

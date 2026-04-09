@@ -33,8 +33,19 @@ def render_ai_features():
                 st.error(
                     "GEMINI_API_KEY not found. Add it under "
                     "Streamlit Cloud → Manage app → Secrets as:  "
-                    '`GEMINI_API_KEY = "your-key"`'
+                    '`GEMINI_API_KEY = "your-key"`  then **Reboot app**.'
                 )
+                # Diagnostic: show what keys ARE visible so the user can spot
+                # naming/section mistakes without exposing any values.
+                try:
+                    top_keys = list(st.secrets.keys()) if hasattr(st.secrets, "keys") else []
+                    env_has = "GEMINI_API_KEY" in os.environ
+                    st.caption(
+                        f"Debug — top-level secret keys: `{top_keys or 'none'}` · "
+                        f"env var GEMINI_API_KEY set: `{env_has}`"
+                    )
+                except Exception as _dbg_e:
+                    st.caption(f"Debug — could not read secrets: {_dbg_e}")
             else:
                 scope_info = None
                 try:

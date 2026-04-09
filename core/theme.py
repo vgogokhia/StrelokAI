@@ -55,34 +55,86 @@ def apply_theme(theme: str = "dark"):
             border-bottom: 1px solid #333;
             padding-bottom: 5px;
         }
-        /* Make the sidebar collapse/expand control much more visible. */
+        /* Make the sidebar collapse/expand control unmistakable — target
+           every selector Streamlit has used for it across versions plus a
+           custom .strelok-sidebar-toggle class we tag via JS below. */
+        .strelok-sidebar-toggle,
         button[data-testid="stSidebarCollapseButton"],
         button[data-testid="stSidebarCollapsedControl"],
-        button[kind="headerNoPadding"][aria-label*="sidebar" i] {
-            background: #1f2a44 !important;
-            border: 1px solid #4CAF50 !important;
-            border-radius: 8px !important;
-            width: 40px !important;
-            height: 40px !important;
-            box-shadow: 0 0 10px rgba(76,175,80,0.35) !important;
+        button[data-testid="collapsedControl"],
+        button[aria-label="Close sidebar"],
+        button[aria-label="Open sidebar"],
+        div[data-testid="stSidebarCollapsedControl"] button,
+        [data-testid="stSidebar"] button[kind="headerNoPadding"],
+        header button[kind="headerNoPadding"]:first-of-type {
+            background: #c62828 !important;
+            border: 2px solid #ff5252 !important;
+            border-radius: 10px !important;
+            width: 44px !important;
+            height: 44px !important;
+            min-width: 44px !important;
+            min-height: 44px !important;
+            box-shadow: 0 0 14px rgba(255, 82, 82, 0.75),
+                        0 0 4px rgba(0, 0, 0, 0.6) !important;
             opacity: 1 !important;
-            z-index: 9999 !important;
+            visibility: visible !important;
+            z-index: 999999 !important;
+            padding: 6px !important;
         }
+        .strelok-sidebar-toggle svg,
         button[data-testid="stSidebarCollapseButton"] svg,
         button[data-testid="stSidebarCollapsedControl"] svg,
-        button[kind="headerNoPadding"][aria-label*="sidebar" i] svg {
-            width: 24px !important;
-            height: 24px !important;
-            color: #4CAF50 !important;
-            fill: #4CAF50 !important;
-            stroke: #4CAF50 !important;
+        button[data-testid="collapsedControl"] svg,
+        button[aria-label="Close sidebar"] svg,
+        button[aria-label="Open sidebar"] svg,
+        div[data-testid="stSidebarCollapsedControl"] button svg,
+        [data-testid="stSidebar"] button[kind="headerNoPadding"] svg,
+        header button[kind="headerNoPadding"]:first-of-type svg {
+            width: 28px !important;
+            height: 28px !important;
+            color: #ffffff !important;
+            fill: #ffffff !important;
+            stroke: #ffffff !important;
+            stroke-width: 2.5 !important;
         }
+        .strelok-sidebar-toggle:hover,
         button[data-testid="stSidebarCollapseButton"]:hover,
-        button[data-testid="stSidebarCollapsedControl"]:hover {
-            background: #2b3a5c !important;
-            box-shadow: 0 0 14px rgba(76,175,80,0.6) !important;
+        button[data-testid="stSidebarCollapsedControl"]:hover,
+        button[data-testid="collapsedControl"]:hover,
+        button[aria-label="Close sidebar"]:hover,
+        button[aria-label="Open sidebar"]:hover {
+            background: #e53935 !important;
+            box-shadow: 0 0 20px rgba(255, 82, 82, 1),
+                        0 0 6px rgba(0, 0, 0, 0.6) !important;
         }
         </style>
+        <script>
+        // Tag the sidebar collapse/expand button with a stable class so the
+        // CSS above catches it even if Streamlit renames data-testids.
+        (function tagSidebarToggle() {
+            const label = /sidebar/i;
+            const tag = () => {
+                try {
+                    const parentDoc = window.parent && window.parent.document;
+                    if (!parentDoc) return;
+                    const candidates = parentDoc.querySelectorAll('button');
+                    candidates.forEach(btn => {
+                        const aria = btn.getAttribute('aria-label') || '';
+                        const tid = btn.getAttribute('data-testid') || '';
+                        if (label.test(aria) || label.test(tid) || tid === 'collapsedControl') {
+                            btn.classList.add('strelok-sidebar-toggle');
+                        }
+                    });
+                } catch (_) {}
+            };
+            tag();
+            // Re-tag after Streamlit rerenders (it replaces DOM nodes often).
+            const obs = new MutationObserver(tag);
+            try {
+                obs.observe(window.parent.document.body, { childList: true, subtree: true });
+            } catch (_) {}
+        })();
+        </script>
         """, unsafe_allow_html=True)
     elif theme == "red":
         st.markdown("""

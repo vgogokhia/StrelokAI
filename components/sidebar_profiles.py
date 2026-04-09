@@ -1,13 +1,14 @@
 """
 StrelokAI - Sidebar Profiles Component
 Renders rifle/cartridge profile inputs and save/load functionality.
-Version: 2.0.0
+Version: 2.1.0
 """
 import streamlit as st
 from profiles import (
     RifleProfile, CartridgeProfile, FullProfile,
     save_full_profile, load_full_profile, list_full_profiles
 )
+from ballistics.bullet_library import load_all as load_bullet_library
 
 def render_sidebar_profiles():
     st.markdown("### 📋 Active Profile")
@@ -69,7 +70,14 @@ def render_sidebar_profiles():
         )
         twist_rate = st.number_input(
             "Twist Rate (1:X inches)",
-            min_value=6.0, max_value=20.0, value=st.session_state.profile["twist_rate"], step=0.5
+            min_value=6.0, max_value=20.0, value=st.session_state.profile["twist_rate"], step=0.25
+        )
+        twist_direction = st.radio(
+            "Twist Direction",
+            options=["right", "left"],
+            index=0 if st.session_state.profile.get("twist_direction", "right") == "right" else 1,
+            horizontal=True,
+            help="Right twist (most rifles) drifts bullets right; left twist drifts left."
         )
 
 
@@ -136,7 +144,33 @@ def render_sidebar_profiles():
                     st.error("Enter a name")
         
         st.divider()
-        
+
+        # Bullet library preset picker (read-only; populates the fields below)
+        library = load_bullet_library()
+        if library:
+            preset_labels = ["-- Load Preset --"] + [b.label for b in library]
+            picked = st.selectbox(
+                "📚 Bullet Library",
+                preset_labels,
+                key="bullet_preset_selector",
+                help="Load published bullet specs. You can still edit anything below and save as your own profile.",
+            )
+            if picked != "-- Load Preset --":
+                if st.button("⬇ Apply Preset", use_container_width=True, key="apply_bullet_preset"):
+                    preset = next((b for b in library if b.label == picked), None)
+                    if preset is not None:
+                        st.session_state.profile.update({
+                            "drag_model": "G7",
+                            "bc_g7": preset.bc_g7,
+                            "mass_grains": preset.mass_grains,
+                            "diameter": preset.diameter_in,
+                            "bullet_length_in": preset.length_in,
+                            "muzzle_velocity": preset.default_mv_mps,
+                            "twist_rate": preset.default_twist_in,
+                        })
+                        st.success(f"Applied: {preset.bullet}")
+                        st.rerun()
+
         drag_model = st.radio(
             "Drag Model",
             options=["G1", "G7"],
@@ -164,7 +198,15 @@ def render_sidebar_profiles():
             step=0.001,
             format="%.3f"
         )
-        
+        bullet_length_in = st.number_input(
+            "Bullet Length (inches)",
+            min_value=0.300, max_value=3.000,
+            value=st.session_state.profile.get("bullet_length_in", 1.240),
+            step=0.001,
+            format="%.3f",
+            help="Used for Miller gyroscopic stability calculation."
+        )
+
         st.divider()
         st.markdown("**Velocity & Temperature Settings**")
         col1, col2, col3 = st.columns(3)
@@ -193,7 +235,9 @@ def render_sidebar_profiles():
         "bc_g7": bc_val,  # Unifying BC value under one key for ease of use in ballistics, with drag_model indicating its type
         "mass_grains": mass_grains,
         "diameter": diameter,
+        "bullet_length_in": bullet_length_in,
         "zero_range": zero_range,
         "sight_height": sight_height,
         "twist_rate": twist_rate,
+        "twist_direction": twist_direction,
     })

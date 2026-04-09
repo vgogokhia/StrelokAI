@@ -1,13 +1,39 @@
 """
 StrelokAI - Atmosphere & Weather Component
 Weather sync API integration and atmospheric override inputs.
-Version: 1.0.0
+Version: 1.1.0
 """
 import streamlit as st
 from config import DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 from ai.weather_api import get_weather
+from ballistics.atmosphere import Atmosphere, AtmosphericConditions
+
+
+def _atmosphere_summary(temp_c: float, pressure: float, humidity: float, altitude: float) -> str:
+    """One-liner with density altitude, air density, speed of sound."""
+    try:
+        atm = Atmosphere(AtmosphericConditions(
+            temperature_c=temp_c,
+            pressure_mbar=pressure,
+            humidity_pct=humidity,
+            altitude_m=altitude,
+        ))
+        da_ft = atm.density_altitude_ft()
+        rho = atm.air_density()
+        sos = atm.speed_of_sound()
+        return f"**DA** {da_ft:,.0f} ft  |  **ρ** {rho:.3f} kg/m³  |  **a** {sos:.1f} m/s  |  **T** {temp_c:.1f}°C"
+    except Exception:
+        return f"T {temp_c:.1f}°C | P {pressure:.0f} mbar | RH {humidity:.0f}%"
+
 
 def render_atmosphere_section():
+    # Compact always-visible summary line from current state
+    temp_c_cur = float(st.session_state.temp_c)
+    pressure_cur = float(st.session_state.pressure)
+    humidity_cur = float(st.session_state.humidity)
+    altitude_cur = float(st.session_state.get("altitude_m", 0.0))
+    st.caption(_atmosphere_summary(temp_c_cur, pressure_cur, humidity_cur, altitude_cur))
+
     with st.expander("🌡️ Atmosphere & Weather Sync", expanded=False):
         # Weather sync button - now syncs wind too!
         weather_clicked = st.button("🌍 Sync All Weather Data", type="primary")

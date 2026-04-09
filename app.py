@@ -1,7 +1,7 @@
 """
 StrelokAI - AI-Powered Ballistic Calculator
 Main Streamlit Application
-Version: 1.2.0
+Version: 1.3.0
 """
 import streamlit as st
 
@@ -26,6 +26,10 @@ from components.target_wind import render_target_section, render_wind_section
 from components.atmosphere import render_atmosphere_section
 from components.solution import render_solution_section
 from components.ai_features import render_ai_features
+from components.dope_card import render_dope_card
+from components.reticle import render_reticle
+from components.turret import render_turret
+from components.range_estimator import render_range_estimator
 
 
 # Initialize Session State
@@ -65,39 +69,62 @@ with st.sidebar:
     st.divider()
     render_sidebar_profiles()
 
-# Main content area
-col_target, col_wind = st.columns([2, 1])
-
-# Target & Wind
-render_target_section(col_target)
-wind_deg = render_wind_section(col_wind)
-
-# Atmosphere
-temp_c, pressure, humidity, altitude = render_atmosphere_section()
-
-# Calculate Solution
-st.divider()
-render_solution_section(
-    muzzle_velocity=st.session_state.profile["muzzle_velocity"],
-    mv_temp_c=st.session_state.profile.get("mv_temp_c", 15.0),
-    temp_sensitivity=st.session_state.profile.get("temp_sensitivity", 0.1),
-    drag_model=st.session_state.profile.get("drag_model", "G7"),
-    bc_val=st.session_state.profile["bc_g7"],
-    mass_grains=st.session_state.profile["mass_grains"],
-    diameter=st.session_state.profile["diameter"],
-    zero_range=st.session_state.profile["zero_range"],
-    target_range=st.session_state.target_range,
-    temp_c=temp_c,
-    pressure=pressure,
-    humidity=humidity,
-    altitude=altitude,
-    wind_speed=st.session_state.wind_speed,
-    wind_deg=wind_deg
+# Main tabbed interface
+tab_calc, tab_dope, tab_reticle, tab_turret, tab_range = st.tabs(
+    ["🎯 Calculator", "📋 Dope Card", "🔭 Reticle", "🎛️ Turret", "📏 Range Est."]
 )
 
-# AI Features Section
-st.divider()
-render_ai_features()
+with tab_calc:
+    col_target, col_wind = st.columns([2, 1])
+
+    # Target & Wind
+    render_target_section(col_target)
+    wind_deg = render_wind_section(col_wind)
+
+    # Atmosphere
+    temp_c, pressure, humidity, altitude = render_atmosphere_section()
+
+    # Calculate Solution
+    st.divider()
+    render_solution_section(
+        muzzle_velocity=st.session_state.profile["muzzle_velocity"],
+        mv_temp_c=st.session_state.profile.get("mv_temp_c", 15.0),
+        temp_sensitivity=st.session_state.profile.get("temp_sensitivity", 0.1),
+        drag_model=st.session_state.profile.get("drag_model", "G7"),
+        bc_val=st.session_state.profile["bc_g7"],
+        mass_grains=st.session_state.profile["mass_grains"],
+        diameter=st.session_state.profile["diameter"],
+        zero_range=st.session_state.profile["zero_range"],
+        target_range=st.session_state.target_range,
+        temp_c=temp_c,
+        pressure=pressure,
+        humidity=humidity,
+        altitude=altitude,
+        wind_speed=st.session_state.wind_speed,
+        wind_deg=wind_deg,
+        bullet_length_in=st.session_state.profile.get("bullet_length_in", 1.0),
+        twist_rate_inches=st.session_state.profile.get("twist_rate", 10.0),
+        twist_direction=st.session_state.profile.get("twist_direction", "right"),
+        sight_height_mm=st.session_state.profile.get("sight_height", 40.0),
+        elevation_angle_deg=float(st.session_state.get("shot_angle_deg", 0.0)),
+        cant_angle_deg=float(st.session_state.get("cant_angle_deg", 0.0)),
+    )
+
+    # AI Features Section
+    st.divider()
+    render_ai_features()
+
+with tab_dope:
+    render_dope_card()
+
+with tab_reticle:
+    render_reticle()
+
+with tab_turret:
+    render_turret()
+
+with tab_range:
+    render_range_estimator()
 
 # Footer
 st.divider()

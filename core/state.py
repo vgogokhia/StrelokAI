@@ -17,10 +17,19 @@ def init_session_state():
             "bc_g7": 0.243,
             "mass_grains": 175.0,
             "diameter": 0.308,
+            "bullet_length_in": 1.240,
             "zero_range": 100.0,
             "sight_height": 40.0,
-            "twist_rate": 10.0,
+            "twist_rate": 11.25,
+            "twist_direction": "right",
         }
+    # Forward-compatible top-ups for older session profiles
+    for k, default in (
+        ("bullet_length_in", 1.240),
+        ("twist_direction", "right"),
+    ):
+        if k not in st.session_state.profile:
+            st.session_state.profile[k] = default
 
     if "weather" not in st.session_state:
         st.session_state.weather = None
@@ -30,6 +39,14 @@ def init_session_state():
 
     if "target_range" not in st.session_state:
         st.session_state.target_range = 500
+    if "recent_ranges" not in st.session_state:
+        st.session_state.recent_ranges = []
+    if "cant_angle_deg" not in st.session_state:
+        st.session_state.cant_angle_deg = 0.0
+    if "shot_angle_deg" not in st.session_state:
+        st.session_state.shot_angle_deg = 0.0
+    if "reticle_name" not in st.session_state:
+        st.session_state.reticle_name = "MIL-Dot"
 
     if "temp_c" not in st.session_state:
         st.session_state.temp_c = 15.0

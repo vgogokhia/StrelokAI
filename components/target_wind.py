@@ -1,7 +1,7 @@
 """
 StrelokAI - Target & Wind Component
 Renders target distance slider, wind speed/direction inputs, and phone compass widget.
-Version: 1.1.0
+Version: 2.0.0 - compact single-row layout
 """
 import streamlit as st
 import streamlit.components.v1 as components
@@ -24,65 +24,92 @@ def _set_range(range_m: int):
 
 def render_target_section(col):
     with col:
-        # Target Range Input
-        st.markdown("### 🎯 Target")
+        st.markdown("#### Target")
 
-        # Quick range chips
-        st.caption("Quick ranges")
-        cols = st.columns(len(QUICK_RANGES))
+        # Row 1: editable number + slider side-by-side
+        num_col, slider_col = st.columns([1, 3], gap="small")
+        with num_col:
+            typed = st.number_input(
+                "Distance",
+                min_value=50, max_value=2000,
+                value=int(st.session_state.target_range),
+                step=5,
+                key="target_range_num",
+                label_visibility="collapsed",
+            )
+        with slider_col:
+            slid = st.slider(
+                "Distance Slider",
+                min_value=50, max_value=2000,
+                value=int(st.session_state.target_range),
+                step=5,
+                key="target_range_slider",
+                label_visibility="collapsed",
+            )
+        # Whichever widget changed most recently wins.
+        new_range = None
+        if typed != st.session_state.target_range:
+            new_range = typed
+        elif slid != st.session_state.target_range:
+            new_range = slid
+        if new_range is not None:
+            st.session_state.target_range = int(new_range)
+            _push_recent(int(new_range))
+
+        current = int(st.session_state.target_range)
+
+        # Row 2: quick chips + angle/cant popover on a single row.
+        chip_cols = st.columns(len(QUICK_RANGES) + 1, gap="small")
         for i, r in enumerate(QUICK_RANGES):
-            if cols[i].button(f"{r}", key=f"qr_{r}", use_container_width=True):
+            is_active = (current == r)
+            if chip_cols[i].button(
+                f"{r}",
+                key=f"qr_{r}",
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+            ):
                 _set_range(r)
+        with chip_cols[-1]:
+            # st.popover is available in Streamlit >= 1.32
+            try:
+                with st.popover("⚙", use_container_width=True):
+                    _render_angle_cant_inputs()
+            except Exception:
+                with st.expander("⚙ Angle/Cant", expanded=False):
+                    _render_angle_cant_inputs()
 
-        # Recent ranges (excluding those already in QUICK_RANGES)
+        # Row 3 (conditional): recent ranges, pill-sized
         recents = [r for r in st.session_state.get("recent_ranges", []) if r not in QUICK_RANGES]
         if recents:
-            st.caption("Recent")
-            rcols = st.columns(max(len(recents), 1))
+            rec_cols = st.columns([0.6] + [1] * len(recents))
+            rec_cols[0].caption("Recent")
             for i, r in enumerate(recents):
-                if rcols[i].button(f"{r} m", key=f"rr_{r}", use_container_width=True):
+                if rec_cols[i + 1].button(
+                    f"{r}",
+                    key=f"rr_{r}",
+                    use_container_width=True,
+                    type="primary" if current == r else "secondary",
+                ):
                     _set_range(r)
 
-        # Slider for fine control
-        target_range = st.slider(
-            "Distance",
-            min_value=50,
-            max_value=2000,
-            value=int(st.session_state.target_range),
-            step=5,
-            format="%d m"
-        )
-        if target_range != st.session_state.target_range:
-            st.session_state.target_range = target_range
-            _push_recent(target_range)
 
-        # Two buttons side by side
-        c1, c2 = st.columns(2)
-        if c1.button("◀ -5", key="dist_m5", use_container_width=True):
-            st.session_state.target_range = max(50, st.session_state.target_range - 5)
-            st.rerun()
-        if c2.button("+5 ▶", key="dist_p5", use_container_width=True):
-            st.session_state.target_range = min(2000, st.session_state.target_range + 5)
-            st.rerun()
-
-        # Shot angle & cant
-        with st.expander("📐 Shot Angle & Cant", expanded=False):
-            shot_angle = st.number_input(
-                "Shot Angle (°)",
-                min_value=-60.0, max_value=60.0,
-                value=float(st.session_state.get("shot_angle_deg", 0.0)),
-                step=1.0,
-                help="Positive = uphill, negative = downhill. Reduces effective drop.",
-            )
-            st.session_state.shot_angle_deg = shot_angle
-            cant_angle = st.number_input(
-                "Cant Angle (°)",
-                min_value=-45.0, max_value=45.0,
-                value=float(st.session_state.get("cant_angle_deg", 0.0)),
-                step=1.0,
-                help="Rifle roll angle. Positive = rifle tilted right.",
-            )
-            st.session_state.cant_angle_deg = cant_angle
+def _render_angle_cant_inputs():
+    shot_angle = st.number_input(
+        "Shot Angle (°)",
+        min_value=-60.0, max_value=60.0,
+        value=float(st.session_state.get("shot_angle_deg", 0.0)),
+        step=1.0,
+        help="Positive = uphill, negative = downhill. Reduces effective drop.",
+    )
+    st.session_state.shot_angle_deg = shot_angle
+    cant_angle = st.number_input(
+        "Cant Angle (°)",
+        min_value=-45.0, max_value=45.0,
+        value=float(st.session_state.get("cant_angle_deg", 0.0)),
+        step=1.0,
+        help="Rifle roll angle. Positive = rifle tilted right.",
+    )
+    st.session_state.cant_angle_deg = cant_angle
 
 def render_wind_section(col):
     with col:

@@ -50,9 +50,6 @@ if google_err:
 # Apply Theme
 apply_theme(st.session_state.theme)
 
-# Header - compact for mobile
-st.markdown(f"**🎯 {APP_NAME}** | Ballistic Calculator |")
-
 # Sidebar - Settings
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
@@ -84,7 +81,7 @@ with st.sidebar:
 
 # Main tabbed interface
 tab_calc, tab_dope, tab_reticle, tab_turret, tab_range = st.tabs(
-    ["🎯 Calculator", "📋 Dope Card", "🔭 Reticle", "🎛️ Turret", "📏 Range Est."]
+    ["Calculator", "Dope Card", "Reticle", "Turret", "Range Est."]
 )
 
 with tab_calc:

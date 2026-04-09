@@ -137,12 +137,13 @@ def render_sidebar_profiles():
                         name=save_ammo_name,
                         muzzle_velocity=st.session_state.profile["muzzle_velocity"],
                         drag_model=model,
-                        bc_g7=bc_val if model == "G7" else 0.0,  
+                        bc_g7=bc_val if model == "G7" else 0.0,
                         bc_g1=bc_val if model == "G1" else None,
                         mass_grains=st.session_state.profile["mass_grains"],
                         diameter=st.session_state.profile["diameter"],
+                        bullet_length_in=st.session_state.profile.get("bullet_length_in", 1.0),
                         mv_temp_c=st.session_state.profile.get("mv_temp_c", 15.0),
-                        temp_sensitivity=st.session_state.profile.get("temp_sensitivity", 0.1)
+                        temp_sensitivity=st.session_state.profile.get("temp_sensitivity", 0.1),
                     )
                     success, msg = save_cartridge_profile(st.session_state.username, new_ammo)
                     if success:

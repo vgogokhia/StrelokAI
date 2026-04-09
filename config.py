@@ -5,9 +5,13 @@ Version: 1.0.0
 """
 import os
 
-# API Keys (use environment variables in production)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCgT-3jBCQlM84yGhNzPWJHRTrR_0Mm6dk")
-OPENWEATHERMAP_API_KEY = os.getenv("OPENWEATHERMAP_API_KEY", "your-openweathermap-api-key-here")
+# API Keys — NEVER hardcode. Load from env / Streamlit secrets only.
+# On Streamlit Cloud, set these under "Manage app → Secrets" as TOML:
+#   GEMINI_API_KEY = "your-key"
+#   OPENWEATHERMAP_API_KEY = "your-key"
+# Streamlit Cloud exposes st.secrets entries as env vars automatically.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+OPENWEATHERMAP_API_KEY = os.getenv("OPENWEATHERMAP_API_KEY", "")
 
 # Default location (Tbilisi, Georgia)
 DEFAULT_LATITUDE = 41.7151
@@ -15,7 +19,7 @@ DEFAULT_LONGITUDE = 44.8271
 
 # App settings
 APP_NAME = "StrelokAI"
-VERSION = "0.5.9"
+VERSION = "0.5.10"
 
 # Unit preferences
 DEFAULT_DISTANCE_UNIT = "meters"  # meters or yards

@@ -12,8 +12,9 @@ from core.units import (
     input_speed_from_mps, input_speed_to_mps,
 )
 
-# Quick-range presets in METRES (internal). Displayed values are converted.
+# Quick-range presets — round numbers in both systems.
 _QUICK_RANGES_M = [100, 300, 500, 800, 1000]
+_QUICK_RANGES_YD = [100, 300, 500, 800, 1000]
 
 
 # ---------------------------------------------------------------------------
@@ -100,14 +101,22 @@ def render_target_section(col):
         st.caption(f"Distance: **{disp} {unit}**")
 
         # Row 2: quick chips + angle/cant popover
-        chip_labels = [_m_to_display(r) for r in _QUICK_RANGES_M]
+        # Use round numbers in both systems; for imperial, chip values are
+        # in yards and get converted to metres on click.
+        if imp:
+            chip_values_display = _QUICK_RANGES_YD
+            chip_values_m = [int(round(y * 0.9144)) for y in _QUICK_RANGES_YD]
+        else:
+            chip_values_display = _QUICK_RANGES_M
+            chip_values_m = _QUICK_RANGES_M
+
         current_disp = disp
-        chip_cols = st.columns(len(_QUICK_RANGES_M) + 1, gap="small")
-        for i, (r_m, label) in enumerate(zip(_QUICK_RANGES_M, chip_labels)):
+        chip_cols = st.columns(len(chip_values_display) + 1, gap="small")
+        for i, (r_m, label) in enumerate(zip(chip_values_m, chip_values_display)):
             active = (current_disp == label)
             if chip_cols[i].button(
                 f"{label}",
-                key=f"qr_{r_m}",
+                key=f"qr_{label}_{unit}",
                 use_container_width=True,
                 type="primary" if active else "secondary",
                 on_click=_sync_quick,

@@ -1,75 +1,117 @@
 """
 StrelokAI - Target & Wind Component
 Renders target distance slider, wind speed/direction inputs, and phone compass widget.
-Version: 2.0.0 - compact single-row layout
+Version: 2.1.0 - full imperial support
 """
 import streamlit as st
 import streamlit.components.v1 as components
 
-QUICK_RANGES = [100, 300, 500, 800, 1000]
+from core.units import (
+    is_imperial, range_label, speed_label,
+    input_range_from_m, input_range_to_m,
+    input_speed_from_mps, input_speed_to_mps,
+)
+
+# Quick-range presets in METRES (internal). Displayed values are converted.
+_QUICK_RANGES_M = [100, 300, 500, 800, 1000]
 
 
-def _sync_range(value: int):
-    """Update the single source of truth AND both widget-owned keys."""
-    v = int(value)
-    st.session_state.target_range = v
-    st.session_state.target_range_num = v
-    st.session_state.target_range_slider = v
+# ---------------------------------------------------------------------------
+# Range sync (always stores metres in session_state.target_range)
+# ---------------------------------------------------------------------------
+
+def _display_to_m(display_val: int) -> int:
+    """Convert a display-unit value to metres."""
+    return int(round(input_range_to_m(display_val)))
+
+
+def _m_to_display(meters: int) -> int:
+    """Convert metres to the current display unit (rounded)."""
+    return int(round(input_range_from_m(meters)))
+
+
+def _sync_range_from_display(display_val: int):
+    """Called when the user changes the number/slider/chip in display units."""
+    m = _display_to_m(display_val)
+    st.session_state.target_range = m
+    disp = _m_to_display(m)
+    st.session_state.target_range_num = disp
+    st.session_state.target_range_slider = disp
+
+
+def _sync_quick(meters: int):
+    """Quick chip callback — value is in metres."""
+    st.session_state.target_range = meters
+    disp = _m_to_display(meters)
+    st.session_state.target_range_num = disp
+    st.session_state.target_range_slider = disp
 
 
 def _on_num_change():
-    _sync_range(st.session_state.target_range_num)
+    _sync_range_from_display(st.session_state.target_range_num)
 
 
 def _on_slider_change():
-    _sync_range(st.session_state.target_range_slider)
+    _sync_range_from_display(st.session_state.target_range_slider)
 
+
+# ---------------------------------------------------------------------------
+# Target section
+# ---------------------------------------------------------------------------
 
 def render_target_section(col):
     with col:
       with st.expander("🎯 Target", expanded=True):
-        # Seed widget-owned keys from target_range on first render (and whenever
-        # target_range was changed externally, e.g. by a quick-range button).
-        tr = int(st.session_state.target_range)
-        if st.session_state.get("target_range_num") != tr:
-            st.session_state.target_range_num = tr
-        if st.session_state.get("target_range_slider") != tr:
-            st.session_state.target_range_slider = tr
+        imp = is_imperial()
+        unit = range_label()  # "yd" or "m"
+        disp = _m_to_display(int(st.session_state.target_range))
+        max_disp = _m_to_display(2000)
+        min_disp = _m_to_display(50)
+        step_disp = 5 if not imp else 5
 
-        # Row 1: editable number + slider side-by-side
+        # Seed widget keys
+        if st.session_state.get("target_range_num") != disp:
+            st.session_state.target_range_num = disp
+        if st.session_state.get("target_range_slider") != disp:
+            st.session_state.target_range_slider = disp
+
+        # Row 1: number + slider
         num_col, slider_col = st.columns([1, 3], gap="small")
         with num_col:
             st.number_input(
-                "Distance",
-                min_value=50, max_value=2000,
-                step=5,
+                f"Distance ({unit})",
+                min_value=min_disp, max_value=max_disp,
+                step=step_disp,
                 key="target_range_num",
                 on_change=_on_num_change,
                 label_visibility="collapsed",
             )
         with slider_col:
             st.slider(
-                "Distance Slider",
-                min_value=50, max_value=2000,
-                step=5,
+                f"Distance ({unit})",
+                min_value=min_disp, max_value=max_disp,
+                step=step_disp,
                 key="target_range_slider",
                 on_change=_on_slider_change,
                 label_visibility="collapsed",
             )
 
-        current = int(st.session_state.target_range)
+        # Unit label + current value
+        st.caption(f"Distance: **{disp} {unit}**")
 
-        # Row 2: quick chips + angle/cant popover on a single row.
-        chip_cols = st.columns(len(QUICK_RANGES) + 1, gap="small")
-        for i, r in enumerate(QUICK_RANGES):
-            is_active = (current == r)
+        # Row 2: quick chips + angle/cant popover
+        chip_labels = [_m_to_display(r) for r in _QUICK_RANGES_M]
+        current_disp = disp
+        chip_cols = st.columns(len(_QUICK_RANGES_M) + 1, gap="small")
+        for i, (r_m, label) in enumerate(zip(_QUICK_RANGES_M, chip_labels)):
+            active = (current_disp == label)
             if chip_cols[i].button(
-                f"{r}",
-                key=f"qr_{r}",
+                f"{label}",
+                key=f"qr_{r_m}",
                 use_container_width=True,
-                type="primary" if is_active else "secondary",
-                on_click=_sync_range,
-                args=(r,),
+                type="primary" if active else "secondary",
+                on_click=_sync_quick,
+                args=(r_m,),
             ):
                 pass
         with chip_cols[-1]:
@@ -99,67 +141,78 @@ def _render_angle_cant_inputs():
     )
     st.session_state.cant_angle_deg = cant_angle
 
+
+# ---------------------------------------------------------------------------
+# Wind section
+# ---------------------------------------------------------------------------
+
 def render_wind_section(col):
     with col:
       with st.expander("💨 Wind", expanded=False):
-        wind_speed = st.slider("Speed (m/s)", 0.0, 15.0, float(st.session_state.wind_speed), 0.5)
-        st.session_state.wind_speed = wind_speed
-        
-        # Wind direction - degrees from North (meteorological)
-        wind_dir_deg = st.slider("Wind Direction ° (Relative to North)", 0, 360, int(st.session_state.wind_dir_deg), 15)
+        imp = is_imperial()
+        s_label = speed_label()  # "mph" or "m/s"
+
+        # Wind speed — display in user's units, store in m/s
+        stored_mps = float(st.session_state.wind_speed)
+        disp_speed = input_speed_from_mps(stored_mps)
+        max_speed = 35.0 if imp else 15.0  # ~35 mph ≈ 15 m/s
+
+        wind_speed_disp = st.slider(
+            f"Speed ({s_label})", 0.0, max_speed,
+            float(round(disp_speed, 1)), 0.5,
+        )
+        st.session_state.wind_speed = input_speed_to_mps(wind_speed_disp)
+
+        # Wind direction
+        wind_dir_deg = st.slider(
+            "Wind Direction ° (from North)", 0, 360,
+            int(st.session_state.wind_dir_deg), 15,
+        )
         st.session_state.wind_dir_deg = wind_dir_deg
-        
-        # Phone compass - auto updates on click
-        # Show current heading if set
+
+        # Compass heading
         if st.session_state.compass_heading > 0:
             st.success(f"🧭 Heading: **{int(st.session_state.compass_heading)}°**")
-        
-        # Manual Shooting Direction Input
+
         shooting_dir = st.number_input(
             "Shooting Direction (°)",
             min_value=0, max_value=359,
             value=int(st.session_state.compass_heading),
             step=5,
-            help="Direction you are aiming (0 = North, 90 = East). You can enter this manually or tap the compass block on a mobile device to auto-fill."
+            help="Direction you are aiming (0=N, 90=E). Enter manually or tap compass.",
         )
         st.session_state.compass_heading = shooting_dir
-        
-        # declare_component is the ONLY way to get data back from JS to Python in Streamlit
-        # components.html() is one-way (Python→JS only), it cannot return values
+
+        # Phone compass widget
         from pathlib import Path
         _compass_dir = Path(__file__).parent / "compass"
         _compass_comp = components.declare_component("compass_widget", path=str(_compass_dir))
-        
         _compass_val = _compass_comp(key="compass_input", default=None)
         if isinstance(_compass_val, dict) and "heading" in _compass_val:
             new_h = int(_compass_val["heading"])
             if new_h != st.session_state.compass_heading:
                 st.session_state.compass_heading = new_h
                 st.rerun()
-        
-        # Use session state heading for wind calculation
+
         compass_heading = st.session_state.compass_heading
-        
-        # Always calculate relative wind difference
         wind_deg = (wind_dir_deg - compass_heading) % 360
-        
-        # Show relative wind description (arrows point DOWNWIND, where the wind is going)
+
         if 337 <= wind_deg or wind_deg < 23:
-            rel_desc = "↓ Headwind"      # Wind from front, blowing towards you
+            rel_desc = "↓ Headwind"
         elif 23 <= wind_deg < 67:
-            rel_desc = "↙ 2 o'clock"      # Wind from 2 o'clock, blowing towards 8 o'clock
+            rel_desc = "↙ 2 o'clock"
         elif 67 <= wind_deg < 113:
-            rel_desc = "← From Right"     # Wind from right, blowing towards left
+            rel_desc = "← From Right"
         elif 113 <= wind_deg < 157:
-            rel_desc = "↖ 4 o'clock"      # Wind from 4 o'clock, blowing towards 10 o'clock
+            rel_desc = "↖ 4 o'clock"
         elif 157 <= wind_deg < 203:
-            rel_desc = "↑ Tailwind"       # Wind from behind, blowing forward
+            rel_desc = "↑ Tailwind"
         elif 203 <= wind_deg < 247:
-            rel_desc = "↗ 8 o'clock"      # Wind from 8 o'clock, blowing towards 2 o'clock
+            rel_desc = "↗ 8 o'clock"
         elif 247 <= wind_deg < 293:
-            rel_desc = "→ From Left"      # Wind from left, blowing towards right
+            rel_desc = "→ From Left"
         else:
-            rel_desc = "↘ 10 o'clock"     # Wind from 10 o'clock, blowing towards 4 o'clock
+            rel_desc = "↘ 10 o'clock"
         st.caption(f"**Relative: {rel_desc}**")
-        
-        return wind_deg  # Important to return the effective wind degree for calculations
+
+        return wind_deg

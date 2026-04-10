@@ -14,9 +14,16 @@ import streamlit as st
 UnitSystem = Literal["metric", "imperial"]
 
 _MPS_TO_FPS = 3.28084
+_FPS_TO_MPS = 1 / _MPS_TO_FPS
 _M_TO_YD = 1.09361
+_YD_TO_M = 1 / _M_TO_YD
 _KG_TO_LB = 2.20462
 _MBAR_TO_INHG = 0.02953
+_INHG_TO_MBAR = 1 / _MBAR_TO_INHG
+_MPH_TO_MPS = 0.44704
+_MPS_TO_MPH = 1 / _MPH_TO_MPS
+_M_TO_FT = 3.28084
+_FT_TO_M = 1 / _M_TO_FT
 
 
 def current_system() -> UnitSystem:
@@ -79,3 +86,64 @@ def fmt_energy(joules: float) -> str:
         # 1 J = 0.737562 ft·lbf
         return f"{joules * 0.737562:.0f} ft·lb"
     return f"{joules:.0f} J"
+
+
+# --- Input-side converters (imperial user-input → metric internal) ----------
+
+def input_range_to_m(value: float) -> float:
+    """Convert a range from the user's unit system to metres."""
+    return value * _YD_TO_M if is_imperial() else value
+
+
+def input_range_from_m(meters: float) -> float:
+    """Convert metres to the user's display unit for pre-filling inputs."""
+    return meters * _M_TO_YD if is_imperial() else meters
+
+
+def input_speed_to_mps(value: float) -> float:
+    """Convert wind speed from user's unit (mph/m/s) to m/s."""
+    return value * _MPH_TO_MPS if is_imperial() else value
+
+
+def input_speed_from_mps(mps: float) -> float:
+    return mps * _MPS_TO_MPH if is_imperial() else mps
+
+
+def input_temp_to_c(value: float) -> float:
+    return (value - 32) * 5 / 9 if is_imperial() else value
+
+
+def input_temp_from_c(celsius: float) -> float:
+    return celsius * 9 / 5 + 32 if is_imperial() else celsius
+
+
+def input_pressure_to_mbar(value: float) -> float:
+    return value * _INHG_TO_MBAR if is_imperial() else value
+
+
+def input_pressure_from_mbar(mbar: float) -> float:
+    return mbar * _MBAR_TO_INHG if is_imperial() else mbar
+
+
+def input_alt_to_m(value: float) -> float:
+    return value * _FT_TO_M if is_imperial() else value
+
+
+def input_alt_from_m(meters: float) -> float:
+    return meters * _M_TO_FT if is_imperial() else meters
+
+
+def speed_label() -> str:
+    return "mph" if is_imperial() else "m/s"
+
+
+def temp_label() -> str:
+    return "°F" if is_imperial() else "°C"
+
+
+def pressure_label() -> str:
+    return "inHg" if is_imperial() else "mbar"
+
+
+def alt_label() -> str:
+    return "ft" if is_imperial() else "m"

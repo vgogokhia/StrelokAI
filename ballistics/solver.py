@@ -30,20 +30,22 @@ from .cdm import DragCurve, curve_to_drag_table
 
 # BC (lb/in^2) sectional-density conversion to SI (kg/m^2): 1 lb/in^2 = 703.0696 kg/m^2.
 #
-# Standard G1/G7 drag tables (McCoy, BRL) express coefficients referenced to
-# the *diameter-squared* area (d^2), NOT the circular cross-section (pi*d^2/4).
-# Since BC = m/d^2 also uses d^2, the pi/4 factors cancel and the retardation
-# simplifies to:
-#     a = Cd_table(M) * rho * v^2 / (2 * BC_si)
+# Standard G1/G7 drag tables (JBM/BRL) express Cd referenced to the circular
+# cross-section A = pi*d^2/4. BC = SD/i where SD = m/d^2, so the retardation
+# of the reference projectile is:
 #
-# where BC_si = BC_lbin2 * 703.0696.  Validated against JBM Ballistics.
+#     a = Cd(M) * A * rho * v^2 / (2 * m)
+#       = Cd(M) * (pi*d^2/4) * rho * v^2 / (2 * m)
 #
-# For Custom Drag Models (CDM) the Cd values are true aerodynamic coefficients
-# referenced to the circular area A = pi*d^2/4, so the retardation uses:
-#     a = Cd_true(M) * rho * v^2 * (pi*d^2/4) / (2*m)
-#       = (pi/8) * Cd_true * rho * v^2 * d^2 / m
+# For a bullet with form factor i = SD/BC:
+#     a = i * Cd(M) * pi * d^2 * rho * v^2 / (8 * m)
+#
+# Substituting i = m / (d^2 * BC_si):
+#     a = (pi/8) * Cd(M) * rho * v^2 / BC_si
+#
+# Tables validated against JBM Ballistics and py_ballisticcalc.
 BC_LBIN2_TO_KGM2 = 703.0696
-CDM_SHAPE_FACTOR = math.pi / 8.0  # for CDM (true aero Cd) only
+DRAG_FACTOR = math.pi / 8.0  # pi/8 for G1/G7/CDM (all use circular ref area)
 
 # Legacy drag model can be re-enabled with STRELOKAI_LEGACY_DRAG=1 for A/B comparison.
 _LEGACY_DRAG = os.environ.get("STRELOKAI_LEGACY_DRAG") == "1"
@@ -130,6 +132,12 @@ class ShootingConditions:
     azimuth_deg: float = 0.0
     elevation_angle_deg: float = 0.0  # Line-of-sight inclination (+ = uphill)
     cant_angle_deg: float = 0.0       # Rifle roll (+ = top tilted right)
+    # Zeroing weather: atmosphere at the time/place the rifle was zeroed.
+    # When set, the zero angle is found under these conditions but the
+    # trajectory is computed with the current `atmosphere`. This correctly
+    # models shooting at a different altitude/temperature than where the
+    # rifle was zeroed — a feature Strelok Pro supports.
+    zero_atmosphere: Optional[Atmosphere] = None
 
 
 @dataclass
@@ -209,6 +217,10 @@ class BallisticSolver:
         self._rho = self.conditions.atmosphere.air_density()
         self._sos = self.conditions.atmosphere.speed_of_sound()
         self._sg_cache: Optional[float] = None
+        # Zeroing atmosphere (may differ from shooting atmosphere)
+        z_atm = self.conditions.zero_atmosphere or self.conditions.atmosphere
+        self._zero_rho = z_atm.air_density()
+        self._zero_sos = z_atm.speed_of_sound()
 
     def _select_drag_model(self):
         proj = self.conditions.projectile
@@ -253,25 +265,22 @@ class BallisticSolver:
             return 0.0
         cd = get_drag_coefficient(mach, self.drag_table)
         if self._use_cdm:
-            # Custom Drag Model: Cd is a true aerodynamic coefficient
-            # referenced to circular area A = pi*d^2/4:
+            # Custom Drag Model: Cd referenced to circular area A = pi*d^2/4:
             #     a = (pi/8) * Cd * rho * v^2 * d^2 / m
             proj = self.conditions.projectile
             d_m = proj.diameter_m
             m_kg = proj.mass_kg
             if m_kg <= 0:
                 return 0.0
-            return CDM_SHAPE_FACTOR * cd * self._rho * v_rel * v_rel * (d_m * d_m) / m_kg
+            return DRAG_FACTOR * cd * self._rho * v_rel * v_rel * (d_m * d_m) / m_kg
         if _LEGACY_DRAG:
-            # Legacy path for A/B comparison only. Scales by density ratio
-            # and uses the old hand-tuned retardation constant.
             rho_ratio = self._rho / Atmosphere.STD_DENSITY
             return (rho_ratio * cd * v_rel ** 2) / (self.bc * _LEGACY_RETARDATION_CONSTANT)
-        # G1/G7 standard drag: Cd_table values are d^2-referenced (include pi/4).
-        #     a = Cd_table * rho * v^2 / (2 * BC_si)
+        # G1/G7 standard drag (BRL tables, circular ref area):
+        #     a = (pi/8) * Cd(M) * rho * v^2 / BC_si
         bc = self._active_bc(v_rel)
         bc_si = bc * BC_LBIN2_TO_KGM2
-        return 0.5 * cd * self._rho * v_rel * v_rel / bc_si
+        return DRAG_FACTOR * cd * self._rho * v_rel * v_rel / bc_si
 
     def _miller_stability(self) -> float:
         """
@@ -484,9 +493,20 @@ class BallisticSolver:
     # --- Zero finding ------------------------------------------------------
 
     def _find_zero_angle(self, zero_range_m: float) -> float:
-        """Iteratively find the bore elevation angle that zeros at zero_range_m."""
+        """Iteratively find the bore elevation angle that zeros at zero_range_m.
+
+        When ``zero_atmosphere`` is set, the zero angle is found using the
+        zeroing atmosphere (air density / speed of sound at the time the rifle
+        was zeroed). The trajectory is later computed under the current
+        shooting atmosphere, so differences in altitude or temperature between
+        the zero and the field are properly accounted for.
+        """
         sight_height = self.conditions.rifle.sight_height_m
         v0 = self.conditions.rifle.muzzle_velocity_mps
+
+        # Temporarily switch to zeroing atmosphere for the zero search.
+        saved_rho, saved_sos = self._rho, self._sos
+        self._rho, self._sos = self._zero_rho, self._zero_sos
 
         t_flight = zero_range_m / v0
         drop_simple = 0.5 * self.GRAVITY * t_flight ** 2
@@ -506,13 +526,14 @@ class BallisticSolver:
                     drop_at_zero = trajectory[-1].drop_m
                 else:
                     break
-            # We want drop_at_zero == 0 (bullet crosses the sight line).
             error = -drop_at_zero
             correction = math.atan(error / zero_range_m)
             angle += correction * 0.7
             if abs(error) < 0.0001:
                 break
 
+        # Restore shooting atmosphere for the actual trajectory.
+        self._rho, self._sos = saved_rho, saved_sos
         return angle
 
     # --- Top-level solve ---------------------------------------------------
@@ -599,6 +620,10 @@ def calculate_solution(
     cant_angle_deg: float = 0.0,
     bc_segments: Optional[List[Tuple[float, float]]] = None,
     drag_curve: Optional[DragCurve] = None,
+    zero_temperature_c: Optional[float] = None,
+    zero_pressure_mbar: Optional[float] = None,
+    zero_humidity_pct: Optional[float] = None,
+    zero_altitude_m: Optional[float] = None,
 ) -> BallisticSolution:
     """Quick calculation with minimal setup (kwargs-first for cache keying)."""
     projectile = Projectile(
@@ -625,6 +650,17 @@ def calculate_solution(
     ))
     wind = Wind(speed_mps=wind_speed_mps, direction_deg=wind_direction_deg)
 
+    # Zeroing atmosphere (if any zero_* param differs from current conditions)
+    zero_atm = None
+    if any(v is not None for v in (zero_temperature_c, zero_pressure_mbar,
+                                    zero_humidity_pct, zero_altitude_m)):
+        zero_atm = Atmosphere(AtmosphericConditions(
+            temperature_c=zero_temperature_c if zero_temperature_c is not None else temperature_c,
+            pressure_mbar=zero_pressure_mbar if zero_pressure_mbar is not None else pressure_mbar,
+            humidity_pct=zero_humidity_pct if zero_humidity_pct is not None else humidity_pct,
+            altitude_m=zero_altitude_m if zero_altitude_m is not None else altitude_m,
+        ))
+
     conditions = ShootingConditions(
         projectile=projectile,
         rifle=rifle,
@@ -634,6 +670,7 @@ def calculate_solution(
         azimuth_deg=azimuth_deg,
         elevation_angle_deg=elevation_angle_deg,
         cant_angle_deg=cant_angle_deg,
+        zero_atmosphere=zero_atm,
     )
     return BallisticSolver(conditions).solve(target_range_m)
 

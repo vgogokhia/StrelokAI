@@ -29,12 +29,21 @@ from .cdm import DragCurve, curve_to_drag_table
 
 
 # BC (lb/in^2) sectional-density conversion to SI (kg/m^2): 1 lb/in^2 = 703.0696 kg/m^2.
-# Note: BC is *sectional* density SD = m/d^2, not area density m/A. The drag formula
-# therefore needs an extra pi/4 factor because A = pi*d^2/4, giving the canonical
-# ballistics retardation:
-#     a = (pi/8) * Cd(M) * rho * v^2 / (BC_lbin2 * 703.0696)
+#
+# Standard G1/G7 drag tables (McCoy, BRL) express coefficients referenced to
+# the *diameter-squared* area (d^2), NOT the circular cross-section (pi*d^2/4).
+# Since BC = m/d^2 also uses d^2, the pi/4 factors cancel and the retardation
+# simplifies to:
+#     a = Cd_table(M) * rho * v^2 / (2 * BC_si)
+#
+# where BC_si = BC_lbin2 * 703.0696.  Validated against JBM Ballistics.
+#
+# For Custom Drag Models (CDM) the Cd values are true aerodynamic coefficients
+# referenced to the circular area A = pi*d^2/4, so the retardation uses:
+#     a = Cd_true(M) * rho * v^2 * (pi*d^2/4) / (2*m)
+#       = (pi/8) * Cd_true * rho * v^2 * d^2 / m
 BC_LBIN2_TO_KGM2 = 703.0696
-DRAG_SHAPE_FACTOR = math.pi / 8.0
+CDM_SHAPE_FACTOR = math.pi / 8.0  # for CDM (true aero Cd) only
 
 # Legacy drag model can be re-enabled with STRELOKAI_LEGACY_DRAG=1 for A/B comparison.
 _LEGACY_DRAG = os.environ.get("STRELOKAI_LEGACY_DRAG") == "1"
@@ -244,24 +253,25 @@ class BallisticSolver:
             return 0.0
         cd = get_drag_coefficient(mach, self.drag_table)
         if self._use_cdm:
-            # Custom Drag Model: Cd is the bullet's *absolute* drag
-            # coefficient (not referenced to G1/G7). Use the raw
-            # projectile sectional density in SI units.
+            # Custom Drag Model: Cd is a true aerodynamic coefficient
+            # referenced to circular area A = pi*d^2/4:
             #     a = (pi/8) * Cd * rho * v^2 * d^2 / m
             proj = self.conditions.projectile
             d_m = proj.diameter_m
             m_kg = proj.mass_kg
             if m_kg <= 0:
                 return 0.0
-            return DRAG_SHAPE_FACTOR * cd * self._rho * v_rel * v_rel * (d_m * d_m) / m_kg
+            return CDM_SHAPE_FACTOR * cd * self._rho * v_rel * v_rel * (d_m * d_m) / m_kg
         if _LEGACY_DRAG:
             # Legacy path for A/B comparison only. Scales by density ratio
             # and uses the old hand-tuned retardation constant.
             rho_ratio = self._rho / Atmosphere.STD_DENSITY
             return (rho_ratio * cd * v_rel ** 2) / (self.bc * _LEGACY_RETARDATION_CONSTANT)
+        # G1/G7 standard drag: Cd_table values are d^2-referenced (include pi/4).
+        #     a = Cd_table * rho * v^2 / (2 * BC_si)
         bc = self._active_bc(v_rel)
-        bc_si = bc * BC_LBIN2_TO_KGM2  # sectional density in kg/m^2
-        return DRAG_SHAPE_FACTOR * cd * self._rho * v_rel * v_rel / bc_si
+        bc_si = bc * BC_LBIN2_TO_KGM2
+        return 0.5 * cd * self._rho * v_rel * v_rel / bc_si
 
     def _miller_stability(self) -> float:
         """

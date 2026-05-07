@@ -53,8 +53,30 @@ apply_theme(st.session_state.theme)
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
 
-    # Theme is fixed to Dark for now (selector hidden).
-    st.session_state.theme = "dark"
+    # Theme selector. Saves per-user when logged in; otherwise session-only.
+    theme_labels = {"Dark": "dark", "Light": "light", "Red (NVG)": "red"}
+    current_theme = st.session_state.get("theme", "dark")
+    current_label = next(
+        (k for k, v in theme_labels.items() if v == current_theme), "Dark"
+    )
+    theme_choice = st.radio(
+        "Theme",
+        list(theme_labels.keys()),
+        index=list(theme_labels.keys()).index(current_label),
+        horizontal=True,
+        key="theme_radio",
+    )
+    new_theme = theme_labels[theme_choice]
+    if new_theme != current_theme:
+        st.session_state.theme = new_theme
+        if st.session_state.get("logged_in") and st.session_state.get("username"):
+            try:
+                from profiles import save_user_prefs
+                save_user_prefs(st.session_state.username, theme=new_theme)
+            except Exception:
+                pass
+        # Theme CSS is applied above the sidebar, so re-run to repaint.
+        st.rerun()
 
     # Unit system selector
     units_index = 1 if st.session_state.get("units", "metric") == "imperial" else 0
@@ -62,7 +84,15 @@ with st.sidebar:
         "Units", ["Metric", "Imperial"], index=units_index, horizontal=True,
         key="units_radio",
     )
-    st.session_state.units = "imperial" if units_choice == "Imperial" else "metric"
+    new_units = "imperial" if units_choice == "Imperial" else "metric"
+    if new_units != st.session_state.get("units"):
+        st.session_state.units = new_units
+        if st.session_state.get("logged_in") and st.session_state.get("username"):
+            try:
+                from profiles import save_user_prefs
+                save_user_prefs(st.session_state.username, units=new_units)
+            except Exception:
+                pass
     
     st.divider()
     

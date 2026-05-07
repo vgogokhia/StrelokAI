@@ -73,6 +73,13 @@ def handle_google_oauth():
             st.session_state.username = user_info.get("email", "Google User")
             st.session_state.auth_message = f"Welcome, {st.session_state.username}!"
 
+            # Hydrate persisted prefs (units, theme) into session_state.
+            try:
+                from profiles import hydrate_session_prefs
+                hydrate_session_prefs(st.session_state.username)
+            except Exception:
+                pass
+
             # Persist across websocket reconnects
             try:
                 from core.session_persist import save_session_cookie

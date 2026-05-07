@@ -195,3 +195,54 @@ def load_full_profile(username: str, profile_name: str) -> Optional[FullProfile]
 
 def list_full_profiles(username: str) -> List[str]:
     return [doc.id for doc in _profiles_col(username, "full").stream()]
+
+
+# ---------------------------------------------------------------------------
+# User Preferences (units, theme)
+# ---------------------------------------------------------------------------
+
+_PREF_DEFAULTS: Dict[str, str] = {"units": "metric", "theme": "dark"}
+_PREF_KEYS = frozenset(_PREF_DEFAULTS)
+
+
+def load_user_prefs(username: str) -> Dict[str, str]:
+    """Return the user's persisted prefs (units, theme), filling defaults
+    for missing keys. Safe for users whose Firestore doc doesn't exist
+    yet (e.g. first Google OAuth login)."""
+    if not username:
+        return dict(_PREF_DEFAULTS)
+    try:
+        from core.firestore_client import get_firestore_client
+        db = get_firestore_client()
+        doc = db.collection("users").document(username.lower()).get()
+        data = doc.to_dict() if doc.exists else {}
+    except Exception:
+        data = {}
+    return {k: (data.get(k) or _PREF_DEFAULTS[k]) for k in _PREF_KEYS}
+
+
+def save_user_prefs(username: str, **fields) -> None:
+    """Persist a subset of user prefs to the user's Firestore doc.
+    Uses set(merge=True) so the doc is created on first save (Google OAuth
+    users don't have a User record from auth.create_user)."""
+    if not username:
+        return
+    payload = {k: v for k, v in fields.items() if k in _PREF_KEYS and v is not None}
+    if not payload:
+        return
+    try:
+        from core.firestore_client import get_firestore_client
+        db = get_firestore_client()
+        db.collection("users").document(username.lower()).set(payload, merge=True)
+    except Exception:
+        pass
+
+
+def hydrate_session_prefs(username: str) -> None:
+    """Load user prefs from Firestore and copy them into st.session_state.
+    Called on every login path (cookie restore, email/password, Google OAuth)
+    so the UI reflects the user's saved theme and units."""
+    import streamlit as st
+    prefs = load_user_prefs(username)
+    st.session_state.units = prefs["units"]
+    st.session_state.theme = prefs["theme"]

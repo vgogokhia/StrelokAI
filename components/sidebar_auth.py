@@ -51,6 +51,11 @@ def render_sidebar_auth():
                     st.session_state.username = username_val
                     st.session_state.auth_message = welcome
                     try:
+                        from profiles import hydrate_session_prefs
+                        hydrate_session_prefs(username_val)
+                    except Exception:
+                        pass
+                    try:
                         save_session_cookie(username_val)
                     except Exception:
                         pass

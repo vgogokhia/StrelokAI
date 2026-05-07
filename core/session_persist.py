@@ -95,6 +95,11 @@ def restore_session_from_cookie() -> None:
     if username:
         st.session_state.logged_in = True
         st.session_state.username = username
+        try:
+            from profiles import hydrate_session_prefs
+            hydrate_session_prefs(username)
+        except Exception:
+            pass
 
 
 def save_session_cookie(username: str) -> None:

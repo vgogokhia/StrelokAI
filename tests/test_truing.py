@@ -59,3 +59,21 @@ def test_truing_recovers_mv(true_mv, guess_mv, range_m):
     )
     assert abs(result["residual_mrad"]) < 0.01
     assert result["iterations"] < 12
+
+
+def test_true_bc_recovers_known_bc(load_308_175smk):
+    """Generate a drop with BC 0.230, start from 0.243, expect ~0.230 back."""
+    from ballistics.truing import true_ballistic_coefficient
+    from ballistics.solver import calculate_solution
+    P = dict(load_308_175smk)
+    truth = calculate_solution(target_range_m=900.0, **{**P, "bc_g7": 0.230}).at_range(900.0).drop_mrad
+    res = true_ballistic_coefficient(
+        observed_drop_mrad=truth, observed_range_m=900.0,
+        muzzle_velocity_mps=P["muzzle_velocity_mps"], initial_bc=0.243, drag_model="G7",
+        mass_grains=P["mass_grains"], diameter_inches=P["diameter_inches"], zero_range_m=P["zero_range_m"],
+        temperature_c=15.0, pressure_mbar=1013.25, humidity_pct=0.0,
+        bullet_length_in=P["bullet_length_in"], twist_rate_inches=P["twist_rate_inches"],
+        sight_height_mm=P["sight_height_mm"],
+    )
+    assert res["converged"]
+    assert abs(res["trued_bc"] - 0.230) < 0.002

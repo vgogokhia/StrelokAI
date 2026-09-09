@@ -5,7 +5,7 @@ Version: 2.0.0 - shared cached solver, MRAD/MOA + click-value aware, unit-aware
 """
 import streamlit as st
 
-from ballistics.truing import true_muzzle_velocity
+from ballistics.truing import true_muzzle_velocity, true_ballistic_coefficient
 from core.solve import solve_current, CurrentInputs
 from core.units import (
     fmt_velocity, fmt_energy, fmt_range, is_imperial, range_label,
@@ -75,7 +75,7 @@ def render_solution_section():
     with st.expander("📈 Trajectory Graph", expanded=False):
         _render_trajectory_graph(solution, inputs.target_range)
 
-    with st.expander("🎯 True MV (match observed drop)", expanded=False):
+    with st.expander("🎯 Truing — match observed drop (MV / BC)", expanded=False):
         _render_truing_block(inputs)
 
     with st.expander("📊 Details", expanded=False):
@@ -209,13 +209,21 @@ def _render_trajectory_graph(solution, target_range: float):
 # ---------------------------------------------------------------------------
 
 def _render_truing_block(inputs: CurrentInputs):
-    """Back-solve the muzzle velocity from an observed come-up at the target range."""
+    """Back-solve MV (mid range) or BC (long range) from an observed come-up."""
     ang = angular_unit()
     from core.units import MRAD_TO_MOA
+    mode = st.radio(
+        "What to true", ["Muzzle velocity (400–600 m)", "Ballistic coefficient (800 m+)"],
+        horizontal=True, key="truing_mode", label_visibility="collapsed",
+    )
+    true_bc = mode.startswith("Ballistic")
     st.caption(
         f"Using current target range **{fmt_range(inputs.target_range)}**. "
-        f"Enter the elevation ({ang}) you ACTUALLY dialed to hit the target; "
-        "the muzzle velocity that reproduces it is back-solved."
+        f"Enter the elevation ({ang}) you ACTUALLY dialed to hit the target. "
+        + ("BC truing assumes MV is already true; do it at the longest range you can observe, "
+           "ideally before the bullet goes transonic."
+           if true_bc else
+           "MV barely depends on BC at mid range, so true MV first, then BC further out.")
     )
 
     dial_up = st.number_input(
@@ -228,14 +236,11 @@ def _render_truing_block(inputs: CurrentInputs):
     )
     dial_up_mrad = dial_up / MRAD_TO_MOA if ang == "MOA" else dial_up
 
-    if st.button("🔧 Compute True MV", width="stretch", key="truing_btn"):
+    if st.button("🔧 Compute", width="stretch", key="truing_btn"):
         try:
-            result = true_muzzle_velocity(
+            common = dict(
                 observed_drop_mrad=-dial_up_mrad,
                 observed_range_m=float(inputs.target_range),
-                initial_mv_guess_mps=inputs.muzzle_velocity,
-                bc_g7=inputs.bc_val if inputs.drag_model == "G7" else None,
-                bc_g1=inputs.bc_val if inputs.drag_model == "G1" else None,
                 mass_grains=inputs.mass_grains,
                 diameter_inches=inputs.diameter,
                 zero_range_m=inputs.zero_range,
@@ -247,6 +252,20 @@ def _render_truing_block(inputs: CurrentInputs):
                 twist_direction=inputs.twist_direction,
                 sight_height_mm=inputs.sight_height_mm,
             )
+            if true_bc:
+                result = true_ballistic_coefficient(
+                    muzzle_velocity_mps=inputs.muzzle_velocity, initial_bc=inputs.bc_val,
+                    drag_model=inputs.drag_model, **common,
+                )
+                result["kind"] = "bc"
+            else:
+                result = true_muzzle_velocity(
+                    initial_mv_guess_mps=inputs.muzzle_velocity,
+                    bc_g7=inputs.bc_val if inputs.drag_model == "G7" else None,
+                    bc_g1=inputs.bc_val if inputs.drag_model == "G1" else None,
+                    **common,
+                )
+                result["kind"] = "mv"
         except Exception as exc:
             st.error(f"Truing failed: {exc}")
             return
@@ -255,6 +274,27 @@ def _render_truing_block(inputs: CurrentInputs):
 
     result = st.session_state.get("_truing_result")
     if not result:
+        return
+
+    if result.get("kind") == "bc":
+        trued = result["trued_bc"]
+        if result["converged"]:
+            st.success(
+                f"✅ True {inputs.drag_model} BC ≈ **{trued:.3f}** "
+                f"(was {inputs.bc_val:.3f}, residual {result['residual_mrad']:+.3f} MRAD)"
+            )
+            if st.button("✔ Apply BC to ammo profile", width="stretch", key="truing_apply_bc"):
+                st.session_state.profile["bc_g7"] = round(trued, 3)
+                st.session_state.profile["bc_segments"] = None
+                st.session_state._truing_result = None
+                st.toast("BC updated in the ammo profile", icon="✅")
+                st.rerun()
+        else:
+            st.warning(
+                f"Did not converge. Best guess BC {trued:.3f} "
+                f"(residual {result['residual_mrad']:+.3f} MRAD). Check MV first, and that the "
+                "observed drop is realistic."
+            )
         return
 
     trued = result["trued_mv_mps"]
@@ -266,8 +306,6 @@ def _render_truing_block(inputs: CurrentInputs):
             f"residual {result['residual_mrad']:+.3f} MRAD)"
         )
         if st.button("✔ Apply to ammo profile", width="stretch", key="truing_apply"):
-            # The profile stores the base MV at mv_temp_c; undo the temperature
-            # compensation so the trued value round-trips through apply_mv_curve.
             comp = inputs.muzzle_velocity / inputs.base_mv if inputs.base_mv else 1.0
             st.session_state.profile["muzzle_velocity"] = round(trued / comp, 1)
             st.session_state._truing_result = None

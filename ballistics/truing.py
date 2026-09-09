@@ -122,3 +122,73 @@ def true_muzzle_velocity(
         "residual_mrad": residual,
         "converged": converged,
     }
+
+
+def true_ballistic_coefficient(
+    *,
+    observed_drop_mrad: float,
+    observed_range_m: float,
+    muzzle_velocity_mps: float,
+    initial_bc: float,
+    drag_model: str,
+    mass_grains: float,
+    diameter_inches: float,
+    zero_range_m: float,
+    temperature_c: float = 15.0,
+    pressure_mbar: float = 1013.25,
+    humidity_pct: float = 50.0,
+    bullet_length_in: float = 1.0,
+    twist_rate_inches: float = 10.0,
+    twist_direction: str = "right",
+    sight_height_mm: float = 40.0,
+    tolerance_mrad: float = 0.01,
+    max_iterations: int = 25,
+) -> dict:
+    """Back-solve the BC that reproduces an observed drop at long range.
+
+    Standard practice: true MV first at 400-600 m (where BC barely matters),
+    then true BC at the longest range you can observe (800 m+), keeping MV
+    fixed. Secant search on BC, clamped to 0.5x-2x of the starting value.
+    """
+    def _drop_at(bc: float) -> float:
+        sol = calculate_solution(
+            muzzle_velocity_mps=muzzle_velocity_mps,
+            bc_g7=bc if drag_model == "G7" else None,
+            bc_g1=bc if drag_model == "G1" else None,
+            mass_grains=mass_grains,
+            diameter_inches=diameter_inches,
+            zero_range_m=zero_range_m,
+            target_range_m=observed_range_m,
+            temperature_c=temperature_c,
+            pressure_mbar=pressure_mbar,
+            humidity_pct=humidity_pct,
+            wind_speed_mps=0.0,
+            bullet_length_in=bullet_length_in,
+            twist_rate_inches=twist_rate_inches,
+            twist_direction=twist_direction,
+            sight_height_mm=sight_height_mm,
+        )
+        pt = sol.at_range(observed_range_m)
+        if pt is None:
+            raise RuntimeError("Solver returned no point at observed range")
+        return pt.drop_mrad
+
+    lo, hi = initial_bc * 0.9, initial_bc * 1.1
+    d_lo, d_hi = _drop_at(lo), _drop_at(hi)
+    iterations, bc, residual, converged = 2, initial_bc, 0.0, False
+    for _ in range(max_iterations):
+        if abs(d_hi - d_lo) < 1e-9:
+            bc = (lo + hi) / 2.0
+            break
+        slope = (d_hi - d_lo) / (hi - lo)
+        bc = hi + (observed_drop_mrad - d_hi) / slope
+        bc = max(initial_bc * 0.5, min(bc, initial_bc * 2.0))
+        d = _drop_at(bc)
+        iterations += 1
+        residual = d - observed_drop_mrad
+        if abs(residual) < tolerance_mrad:
+            converged = True
+            break
+        lo, d_lo = hi, d_hi
+        hi, d_hi = bc, d
+    return {"trued_bc": bc, "iterations": iterations, "residual_mrad": residual, "converged": converged}

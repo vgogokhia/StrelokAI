@@ -19,6 +19,9 @@ from core.units import (
 _compass_comp = components.declare_component(
     "compass_widget", path=str(Path(__file__).parent / "compass")
 )
+_inclino_comp = components.declare_component(
+    "inclinometer_widget", path=str(Path(__file__).parent / "inclinometer")
+)
 
 # Quick-range presets — round numbers in both systems.
 _QUICK_RANGES_M = [100, 300, 500, 800, 1000]
@@ -159,11 +162,21 @@ def _on_quick_seg_change(seg_key, chips_m, chips_disp):
 
 
 def _render_angle_cant_inputs():
+    # Phone sensors: tap the widget to copy pitch -> shot angle, roll -> cant.
+    val = _inclino_comp(key="inclino_input", default=None)
+    if isinstance(val, dict) and val.get("ts") != st.session_state.get("_inclino_ts"):
+        st.session_state._inclino_ts = val.get("ts")
+        if val.get("pitch") is not None:
+            st.session_state.shot_angle_deg = float(max(-60.0, min(60.0, val["pitch"])))
+        if val.get("roll") is not None:
+            st.session_state.cant_angle_deg = float(max(-45.0, min(45.0, val["roll"])))
+        st.rerun()
+
     shot_angle = st.number_input(
         "Shot Angle (°)",
         min_value=-60.0, max_value=60.0,
         value=float(st.session_state.get("shot_angle_deg", 0.0)),
-        step=1.0,
+        step=0.5,
         help="Positive = uphill, negative = downhill. Reduces effective drop.",
     )
     st.session_state.shot_angle_deg = shot_angle
@@ -171,7 +184,7 @@ def _render_angle_cant_inputs():
         "Cant Angle (°)",
         min_value=-45.0, max_value=45.0,
         value=float(st.session_state.get("cant_angle_deg", 0.0)),
-        step=1.0,
+        step=0.5,
         help="Rifle roll angle. Positive = rifle tilted right.",
     )
     st.session_state.cant_angle_deg = cant_angle

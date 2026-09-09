@@ -116,3 +116,20 @@ When using an LLM to make changes:
 4. **Check** if the README description for that file still matches — update if needed
 
 This keeps each AI interaction under ~200 lines instead of 700+, saving significant token costs.
+
+---
+
+## Deploying on Railway (ballistics.ge)
+
+1. Railway → **New Project → Deploy from GitHub repo** → `vgogokhia/StrelokAI`, branch `main`.
+   The repo's `Dockerfile` / `railway.json` are picked up automatically.
+2. **Variables** → add `STREAMLIT_SECRETS_TOML` and paste the *entire* contents of your
+   `secrets.toml` (all sections) as the value. `deploy/start.sh` writes it to
+   `.streamlit/secrets.toml` on every start. Nothing else is required; `PORT` is set by Railway.
+3. **Settings → Networking → Custom Domain** → `ballistics.ge` (and `www.ballistics.ge`).
+   Railway shows a CNAME target like `xxxx.up.railway.app`.
+4. Cloudflare DNS for `ballistics.ge`:
+   - `CNAME  @    xxxx.up.railway.app`  (Proxied)
+   - `CNAME  www  xxxx.up.railway.app`  (Proxied)
+   - SSL/TLS mode: **Full**. Websockets are on by default on Cloudflare.
+5. Health check is `/_stcore/health`.

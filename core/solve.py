@@ -47,6 +47,12 @@ class CurrentInputs:
     cant_angle_deg: float
     latitude_deg: float
     azimuth_deg: float
+    zero_temp_c: float | None = None
+    zero_pressure_mbar: float | None = None
+    zero_humidity_pct: float | None = None
+    zero_offset_v_cm: float = 0.0
+    zero_offset_h_cm: float = 0.0
+    bc_segments: tuple | None = None
 
 
 def _q(value: float, step: float) -> float:
@@ -98,12 +104,54 @@ def gather_inputs() -> CurrentInputs:
         cant_angle_deg=float(ss.get("cant_angle_deg", 0.0)),
         latitude_deg=float(ss.get("location_lat", DEFAULT_LATITUDE)),
         azimuth_deg=float(ss.get("compass_heading", 0.0)),
+        zero_temp_c=_opt(p.get("zero_temp_c")),
+        zero_pressure_mbar=_opt(p.get("zero_pressure_mbar")),
+        zero_humidity_pct=_opt(p.get("zero_humidity_pct")),
+        zero_offset_v_cm=float(p.get("zero_offset_v_cm") or 0.0),
+        zero_offset_h_cm=float(p.get("zero_offset_h_cm") or 0.0),
+        bc_segments=_segments(p.get("bc_segments")),
     )
+
+
+def _opt(v):
+    return None if v is None or v == "" else float(v)
+
+
+def _segments(raw):
+    """Normalise [[v_fps, bc], ...] -> sorted tuple of tuples, or None."""
+    if not raw:
+        return None
+    segs = []
+    for item in raw:
+        try:
+            v, bc = float(item[0]), float(item[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        if bc > 0:
+            segs.append((v, bc))
+    if not segs:
+        return None
+    return tuple(sorted(segs, key=lambda t: -t[0]))
+
+
+def apply_zero_offset(solution: BallisticSolution, zero_range_m: float,
+                      v_cm: float, h_cm: float) -> BallisticSolution:
+    """Shift the whole trajectory for a rifle whose POI at the zero range is
+    not exactly on the aim point: the true bore angle differs by
+    offset/zero_range, so the correction grows linearly with range."""
+    if (not v_cm and not h_cm) or zero_range_m <= 0:
+        return solution
+    kv = (v_cm / 100.0) / zero_range_m
+    kh = (h_cm / 100.0) / zero_range_m
+    for pt in solution.trajectory:
+        pt.drop_m += kv * pt.range_m
+        pt.windage_m += kh * pt.range_m
+    return solution
 
 
 @st.cache_data(ttl=600, show_spinner=False, max_entries=256)
 def _cached_solution(**kw) -> BallisticSolution:
-    return calculate_solution(
+    sol = calculate_solution(
         muzzle_velocity_mps=kw["muzzle_velocity"],
         bc_g7=kw["bc_val"] if kw["drag_model"] == "G7" else None,
         bc_g1=kw["bc_val"] if kw["drag_model"] == "G1" else None,
@@ -125,7 +173,13 @@ def _cached_solution(**kw) -> BallisticSolution:
         sight_height_mm=kw["sight_height_mm"],
         elevation_angle_deg=kw["elevation_angle_deg"],
         cant_angle_deg=kw["cant_angle_deg"],
+        bc_segments=list(kw["bc_segments"]) if kw.get("bc_segments") else None,
+        zero_temperature_c=kw.get("zero_temp_c"),
+        zero_pressure_mbar=kw.get("zero_pressure_mbar"),
+        zero_humidity_pct=kw.get("zero_humidity_pct"),
     )
+    return apply_zero_offset(sol, kw["zero_range"], kw.get("zero_offset_v_cm", 0.0),
+                             kw.get("zero_offset_h_cm", 0.0))
 
 
 def solve_current() -> tuple[CurrentInputs, BallisticSolution]:
@@ -153,5 +207,11 @@ def solve_current() -> tuple[CurrentInputs, BallisticSolution]:
         cant_angle_deg=_q(i.cant_angle_deg, 0.5),
         latitude_deg=_q(i.latitude_deg, 0.1),
         azimuth_deg=_q(i.azimuth_deg, 5.0),
+        zero_temp_c=None if i.zero_temp_c is None else _q(i.zero_temp_c, 0.5),
+        zero_pressure_mbar=None if i.zero_pressure_mbar is None else _q(i.zero_pressure_mbar, 0.5),
+        zero_humidity_pct=None if i.zero_humidity_pct is None else _q(i.zero_humidity_pct, 1.0),
+        zero_offset_v_cm=_q(i.zero_offset_v_cm, 0.1),
+        zero_offset_h_cm=_q(i.zero_offset_h_cm, 0.1),
+        bc_segments=i.bc_segments,
     )
     return i, solution

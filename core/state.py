@@ -31,6 +31,12 @@ def init_session_state():
         ("twist_direction", "right"),
         ("chambering", ""),
         ("cartridge", ""),
+        ("zero_temp_c", None),
+        ("zero_pressure_mbar", None),
+        ("zero_humidity_pct", None),
+        ("zero_offset_v_cm", 0.0),
+        ("zero_offset_h_cm", 0.0),
+        ("bc_segments", None),
     ):
         if k not in st.session_state.profile:
             st.session_state.profile[k] = default

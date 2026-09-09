@@ -18,6 +18,7 @@ from core.units import (
     input_sight_height_from_mm, input_sight_height_to_mm,
     input_velocity_from_mps, input_velocity_to_mps,
     input_temp_from_c, input_temp_to_c, roundtrip,
+    pressure_label, input_pressure_from_mbar, input_pressure_to_mbar,
 )
 
 
@@ -58,6 +59,11 @@ def render_sidebar_profiles():
                             "twist_rate": loaded.twist_rate,
                             "twist_direction": getattr(loaded, "twist_direction", "right"),
                             "chambering": getattr(loaded, "chambering", "") or "",
+                            "zero_temp_c": getattr(loaded, "zero_temp_c", None),
+                            "zero_pressure_mbar": getattr(loaded, "zero_pressure_mbar", None),
+                            "zero_humidity_pct": getattr(loaded, "zero_humidity_pct", None),
+                            "zero_offset_v_cm": getattr(loaded, "zero_offset_v_cm", 0.0) or 0.0,
+                            "zero_offset_h_cm": getattr(loaded, "zero_offset_h_cm", 0.0) or 0.0,
                         })
                         st.session_state._last_loaded_rifle = selected_rifle
                         st.session_state.save_rifle_name = selected_rifle
@@ -74,6 +80,11 @@ def render_sidebar_profiles():
                         twist_rate=st.session_state.profile["twist_rate"],
                         twist_direction=st.session_state.profile.get("twist_direction", "right"),
                         chambering=st.session_state.profile.get("chambering", ""),
+                        zero_temp_c=st.session_state.profile.get("zero_temp_c"),
+                        zero_pressure_mbar=st.session_state.profile.get("zero_pressure_mbar"),
+                        zero_humidity_pct=st.session_state.profile.get("zero_humidity_pct"),
+                        zero_offset_v_cm=st.session_state.profile.get("zero_offset_v_cm", 0.0) or 0.0,
+                        zero_offset_h_cm=st.session_state.profile.get("zero_offset_h_cm", 0.0) or 0.0,
                     )
                     success, msg = save_rifle_profile(st.session_state.username, new_rifle)
                     if success:
@@ -121,6 +132,7 @@ def render_sidebar_profiles():
         )
         # Written immediately so the ammo section below filters on it this run.
         st.session_state.profile["chambering"] = chambering
+        _render_advanced_zero(imp)
 
 
     # ------------------ AMMO PROFILES ------------------
@@ -171,6 +183,7 @@ def render_sidebar_profiles():
                             "temp_sensitivity": getattr(loaded, "temp_sensitivity", 0.1),
                             "bullet_length_in": getattr(loaded, "bullet_length_in", 1.0),
                             "cartridge": getattr(loaded, "cartridge", "") or "",
+                            "bc_segments": getattr(loaded, "bc_segments", None),
                         })
                         st.session_state._last_loaded_ammo = selected_ammo
                         st.session_state.save_ammo_name = selected_ammo
@@ -197,6 +210,7 @@ def render_sidebar_profiles():
                         mv_temp_c=st.session_state.profile.get("mv_temp_c", 15.0),
                         temp_sensitivity=st.session_state.profile.get("temp_sensitivity", 0.1),
                         cartridge=st.session_state.profile.get("cartridge", ""),
+                        bc_segments=st.session_state.profile.get("bc_segments"),
                     )
                     success, msg = save_cartridge_profile(st.session_state.username, new_ammo)
                     if success:
@@ -290,6 +304,8 @@ def render_sidebar_profiles():
             help="Used for Miller gyroscopic stability calculation."
         )
 
+        _render_advanced_bc(drag_model)
+
         st.divider()
         st.markdown("**Velocity & Temperature Settings**")
         imp = is_imperial()
@@ -334,3 +350,85 @@ def render_sidebar_profiles():
         "chambering": chambering,
         "cartridge": cartridge,
     })
+
+
+# ---------------------------------------------------------------------------
+# Advanced settings
+# ---------------------------------------------------------------------------
+
+def _render_advanced_zero(imp: bool):
+    """Zeroing conditions + point-of-impact offset at the zero range."""
+    prof = st.session_state.profile
+    with st.expander("⚙ Advanced zero", expanded=False):
+        st.caption(
+            "**Zeroed in different conditions** — e.g. zeroed in summer at sea level, "
+            "shooting in winter in the mountains. The zero is recomputed under the zeroing "
+            "weather, the trajectory under today's."
+        )
+        differs = st.checkbox(
+            "Zero conditions differ from today's", value=prof.get("zero_temp_c") is not None,
+            key="adv_zero_differs",
+        )
+        if differs:
+            zt_seed = float(round(input_temp_from_c(prof.get("zero_temp_c") if prof.get("zero_temp_c") is not None else 15.0), 0))
+            zt = st.number_input(f"Zero temp ({temp_label()})", -40.0, 130.0 if imp else 55.0, zt_seed, 1.0, key="adv_zero_temp")
+            zp_seed = float(round(input_pressure_from_mbar(prof.get("zero_pressure_mbar") or 1013.25), 2))
+            zp = st.number_input(f"Zero station pressure ({pressure_label()})",
+                                 17.0 if imp else 580.0, 32.5 if imp else 1100.0, zp_seed,
+                                 0.01 if imp else 1.0, format="%.2f" if imp else "%.0f", key="adv_zero_press")
+            zh = st.number_input("Zero humidity (%)", 0.0, 100.0,
+                                 float(prof.get("zero_humidity_pct") if prof.get("zero_humidity_pct") is not None else 50.0),
+                                 5.0, key="adv_zero_hum")
+            prof["zero_temp_c"] = roundtrip(prof.get("zero_temp_c") or 15.0, zt_seed, zt, input_temp_to_c)
+            prof["zero_pressure_mbar"] = roundtrip(prof.get("zero_pressure_mbar") or 1013.25, zp_seed, zp, input_pressure_to_mbar)
+            prof["zero_humidity_pct"] = zh
+        else:
+            prof["zero_temp_c"] = None
+            prof["zero_pressure_mbar"] = None
+            prof["zero_humidity_pct"] = None
+
+        st.caption(
+            "**Zero offset** — where the group actually sits at the zero range "
+            "(e.g. 2 cm high, 1 cm right). Leave 0 if it's dead centre."
+        )
+        unit = "in" if imp else "cm"
+        k = 1 / 2.54 if imp else 1.0
+        c1, c2 = st.columns(2)
+        ov = c1.number_input(f"Vertical ({unit}, + high)", -30.0, 30.0,
+                             float(round((prof.get("zero_offset_v_cm") or 0.0) * k, 2)),
+                             0.1 if imp else 0.5, key="adv_zero_off_v")
+        oh = c2.number_input(f"Horizontal ({unit}, + right)", -30.0, 30.0,
+                             float(round((prof.get("zero_offset_h_cm") or 0.0) * k, 2)),
+                             0.1 if imp else 0.5, key="adv_zero_off_h")
+        prof["zero_offset_v_cm"] = ov / k
+        prof["zero_offset_h_cm"] = oh / k
+
+
+def _render_advanced_bc(drag_model: str):
+    """Velocity-banded BC (Berger/Sierra publish 2-3 bands per bullet)."""
+    prof = st.session_state.profile
+    with st.expander("⚙ Advanced BC (velocity bands)", expanded=False):
+        st.caption(
+            f"Some makers publish the {drag_model} BC in velocity bands, e.g. Sierra: "
+            "0.505 above 2800 fps, 0.496 2800–1800 fps, 0.485 below. Enter them high to low; "
+            "the single BC above is ignored while this is on."
+        )
+        imp = is_imperial()
+        use = st.checkbox("Use velocity bands", value=bool(prof.get("bc_segments")), key="adv_bc_use")
+        if not use:
+            prof["bc_segments"] = None
+            return
+        existing = list(prof.get("bc_segments") or [])
+        vlabel = "fps" if imp else "m/s"
+        rows = []
+        for i in range(3):
+            v_fps, bc = (existing[i] if i < len(existing) else (0.0, 0.0))
+            v_disp = v_fps if imp else v_fps * 0.3048
+            c1, c2 = st.columns(2)
+            v_in = c1.number_input(f"Above ({vlabel})", 0.0, 5000.0 if imp else 1600.0,
+                                   float(round(v_disp, 0)), 50.0 if imp else 10.0, key=f"adv_bc_v{i}",
+                                   help="Velocity floor of this band; 0 = lowest band.")
+            bc_in = c2.number_input("BC", 0.0, 1.5, float(bc), 0.001, format="%.3f", key=f"adv_bc_b{i}")
+            if bc_in > 0:
+                rows.append([v_in if imp else v_in / 0.3048, bc_in])
+        prof["bc_segments"] = sorted(rows, key=lambda r: -r[0]) or None

@@ -64,7 +64,7 @@ def load_all() -> List[BulletPreset]:
             continue  # skip malformed entries, keep the rest usable
 
     bullets = [b for b in bullets if b.bc_g7 is not None or b.bc_g1 is not None]
-    bullets.sort(key=lambda b: (b.caliber, b.mass_grains))
+    bullets.sort(key=lambda b: (b.caliber, b.manufacturer.lower(), b.mass_grains))
     return bullets
 
 

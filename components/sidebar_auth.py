@@ -115,13 +115,10 @@ def _render_google_login():
         from core.google_auth import get_google_auth_url
         auth_url = get_google_auth_url(client_id, redirect_uri)
 
-        # Streamlit Cloud's iframe sandbox blocks both window.top
-        # navigation (so components.html redirects do nothing) and
-        # window.close() on user-opened tabs. The only reliable option is
-        # st.link_button, which opens Google in a new tab. The original
-        # tab still picks up the login via the persistent cookie on its
-        # next reconnect, so both tabs end up logged in and either one
-        # can be closed.
+        # The app runs inside an iframe sandbox that blocks window.top
+        # navigation and window.close(), so the reliable option is a link
+        # button that opens Google in a new tab. The original tab picks up
+        # the login via the persistent cookie on its next reconnect.
         st.link_button(
             "🔵 Sign in with Google",
             url=auth_url,

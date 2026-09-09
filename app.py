@@ -1,6 +1,6 @@
 """
 ballistics.ge - Ballistic Calculator
-Main Streamlit Application
+Main application
 Version: 1.5.0
 """
 import streamlit as st
@@ -31,6 +31,7 @@ from components.dope_card import render_dope_card
 from components.reticle import render_reticle
 from components.turret import render_turret
 from components.range_estimator import render_range_estimator
+from components.feedback import render_feedback
 
 
 init_session_state()
@@ -100,8 +101,8 @@ with st.sidebar:
 # Main tabbed interface
 # ---------------------------------------------------------------------------
 render_header()
-tab_calc, tab_dope, tab_reticle, tab_turret, tab_range = st.tabs(
-    ["Calculator", "Dope Card", "Reticle", "Turret", "Range Est."]
+tab_calc, tab_dope, tab_reticle, tab_turret, tab_range, tab_fb = st.tabs(
+    ["Calculator", "Dope Card", "Reticle", "Turret", "Range Est.", "💬 Feedback"]
 )
 
 with tab_calc:
@@ -123,6 +124,9 @@ with tab_turret:
 
 with tab_range:
     render_range_estimator()
+
+with tab_fb:
+    render_feedback()
 
 st.divider()
 render_about()

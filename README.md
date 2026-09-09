@@ -8,7 +8,7 @@ custom drag curves, spin drift, aero jump, Coriolis, inclination, cant, powder-t
 compensation), and adds live weather for your location, phone compass heading, a dope card,
 reticle/turret views, a rangefinder, scope recognition via AI, and cloud-saved profiles.
 
-The application is deployed at: **https://ballistics.ge** (Railway; legacy mirror on Streamlit Cloud).
+The application is deployed at: **https://ballistics.ge** (Railway, DNS on Cloudflare).
 
 The solver is validated against an independent implementation (py_ballisticcalc, same BRL/JBM
 drag tables): velocities match to <1 % and drop to ~2 % out to 1000 m (`tests/`).

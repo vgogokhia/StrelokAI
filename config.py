@@ -5,11 +5,9 @@ Version: 1.0.0
 """
 import os
 
-# API Keys — NEVER hardcode. Load from env / Streamlit secrets only.
-# On Streamlit Cloud, set these under "Manage app → Secrets" as TOML:
-#   GEMINI_API_KEY = "your-key"
-#   OPENWEATHERMAP_API_KEY = "your-key"
-# Streamlit Cloud exposes st.secrets entries as env vars automatically.
+# API keys — never hardcode. Loaded from .streamlit/secrets.toml (written
+# from the STREAMLIT_SECRETS_TOML variable on Railway, see deploy/start.sh)
+# or from environment variables.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 OPENWEATHERMAP_API_KEY = os.getenv("OPENWEATHERMAP_API_KEY", "")
 

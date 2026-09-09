@@ -20,11 +20,11 @@
    meta description must be present (Googlebot renders JavaScript).
 5. Cloudflare → SSL/TLS → **Always Use HTTPS** on; Rules → redirect `www.ballistics.ge/*`
    → `https://ballistics.ge/$1` (301) so there is one canonical host.
-6. Old Streamlit URL: keep it running for a few weeks, then delete it so Google doesn't
-   see duplicate content. (Streamlit Cloud cannot 301-redirect.)
+6. The old strelokai.streamlit.app mirror: delete it once ballistics.ge is stable so
+   Google doesn't see duplicate content.
 
 ## Getting ahead in results
-- Streamlit apps are thin for crawlers: the About text is the main ranking content. Add a
+- Single-page apps are thin for crawlers: the About text is the main ranking content. Add a
   few paragraphs over time (how to zero, MRAD vs MOA, .22 LR subsonic drop table) — each
   one is a keyword set.
 - Get 3–5 real links: Georgian shooting clubs / Facebook groups / forums (snipershide,

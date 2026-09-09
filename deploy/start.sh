@@ -8,6 +8,9 @@ cd "$APP_DIR"
 mkdir -p .streamlit
 if [ -n "$STREAMLIT_SECRETS_TOML" ]; then
   printf '%s\n' "$STREAMLIT_SECRETS_TOML" > .streamlit/secrets.toml
+  echo "secrets: wrote .streamlit/secrets.toml ($(wc -l < .streamlit/secrets.toml) lines, sections: $(grep -c '^\[' .streamlit/secrets.toml))"
+else
+  echo "secrets: STREAMLIT_SECRETS_TOML is not set - running without secrets"
 fi
 exec streamlit run app.py \
   --server.port "${PORT:-8501}" \

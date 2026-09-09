@@ -43,3 +43,18 @@ def secret_value(key: str, default: Any = None, *, env: bool = True) -> Any:
 
 def has_secret_section(name: str) -> bool:
     return bool(secret_section(name))
+
+
+def secrets_status() -> tuple[str, str]:
+    """('ok'|'missing'|'error', detail) — used for a sidebar diagnostic."""
+    try:
+        keys = list(st.secrets.keys())
+        return "ok", f"{len(keys)} top-level entries: {', '.join(sorted(keys))[:120]}"
+    except Exception as exc:  # StreamlitSecretNotFoundError, TOML decode errors
+        msg = str(exc)
+        if "No secrets found" in msg:
+            hint = ""
+            if os.getenv("STREAMLIT_SECRETS_TOML"):
+                hint = " (STREAMLIT_SECRETS_TOML is set but no file was written — check deploy logs)"
+            return "missing", "no secrets.toml" + hint
+        return "error", msg[:300]

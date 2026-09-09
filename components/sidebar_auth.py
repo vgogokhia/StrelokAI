@@ -8,6 +8,7 @@ from auth import create_user, authenticate_user
 from core.session_persist import save_session_cookie, clear_session_cookie
 from core.secrets import secret_section
 from core.firestore_client import is_firestore_configured
+from core.secrets import secrets_status
 
 def render_sidebar_auth():
     if not st.session_state.logged_in:
@@ -18,6 +19,13 @@ def render_sidebar_auth():
                 "Accounts are not configured on this server, so profiles can't be "
                 "saved. The calculator works fully without logging in."
             )
+            status, detail = secrets_status()
+            if status == "error":
+                st.caption(f"⚠️ secrets.toml could not be parsed: {detail}")
+            elif status == "ok":
+                st.caption(f"secrets loaded ({detail}) but no valid [gcp_service_account] section.")
+            else:
+                st.caption(f"{detail}")
             return
 
         auth_tab = st.radio(

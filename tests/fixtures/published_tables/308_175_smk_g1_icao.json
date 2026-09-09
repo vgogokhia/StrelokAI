@@ -1,9 +1,9 @@
 {
-  "label": ".308 Win 175gr SMK, G7 0.243, 792.48 m/s",
+  "label": ".308 Win 175gr SMK, G1 0.496, 792.48 m/s",
   "source": "Generated with py_ballisticcalc 2.3.1 (RK4 engine, JBM/BRL drag tables), ICAO standard atmosphere, 100 m zero, no wind, sight height 40 mm. drop_mrad = height/range*1000 (true milliradians).",
   "inputs": {
     "muzzle_velocity_mps": 792.48,
-    "bc_g7": 0.243,
+    "bc_g1": 0.496,
     "mass_grains": 175,
     "diameter_inches": 0.308,
     "bullet_length_in": 1.24,
@@ -25,48 +25,48 @@
   "expected": [
     {
       "range_m": 200,
-      "drop_mrad": -0.719,
-      "vel_mps": 673.4
+      "drop_mrad": -0.715,
+      "vel_mps": 676.4
     },
     {
       "range_m": 300,
-      "drop_mrad": -1.681,
-      "vel_mps": 618.0
+      "drop_mrad": -1.669,
+      "vel_mps": 622.1
     },
     {
       "range_m": 400,
-      "drop_mrad": -2.807,
-      "vel_mps": 565.2
+      "drop_mrad": -2.782,
+      "vel_mps": 570.5
     },
     {
       "range_m": 500,
-      "drop_mrad": -4.098,
-      "vel_mps": 514.6
+      "drop_mrad": -4.054,
+      "vel_mps": 521.8
     },
     {
       "range_m": 600,
-      "drop_mrad": -5.579,
-      "vel_mps": 466.0
+      "drop_mrad": -5.504,
+      "vel_mps": 476.5
     },
     {
       "range_m": 700,
-      "drop_mrad": -7.285,
-      "vel_mps": 419.5
+      "drop_mrad": -7.159,
+      "vel_mps": 435.0
     },
     {
       "range_m": 800,
-      "drop_mrad": -9.264,
-      "vel_mps": 375.6
+      "drop_mrad": -9.05,
+      "vel_mps": 398.0
     },
     {
       "range_m": 900,
-      "drop_mrad": -11.58,
-      "vel_mps": 336.0
+      "drop_mrad": -11.21,
+      "vel_mps": 366.3
     },
     {
       "range_m": 1000,
-      "drop_mrad": -14.296,
-      "vel_mps": 315.3
+      "drop_mrad": -13.67,
+      "vel_mps": 340.7
     }
   ]
 }

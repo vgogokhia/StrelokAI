@@ -7,11 +7,19 @@ import io
 from dataclasses import dataclass
 from typing import Optional
 
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+# The Gemini SDK is imported lazily (see _load_genai) so the app starts fast
+# and does not emit the SDK's import-time warnings unless the feature is used.
+GEMINI_AVAILABLE = True
+
+
+def _load_genai():
+    global GEMINI_AVAILABLE
+    try:
+        import google.generativeai as genai  # noqa: WPS433
+        return genai
+    except ImportError:
+        GEMINI_AVAILABLE = False
+        return None
 
 try:
     from PIL import Image
@@ -137,7 +145,8 @@ def identify_scope(
     if not key or key == "your-gemini-api-key-here":
         return None  # Demo mode — UI will show a clear warning.
 
-    if not GEMINI_AVAILABLE:
+    genai = _load_genai()
+    if genai is None:
         raise RuntimeError("google-generativeai not installed")
     if not PIL_AVAILABLE:
         raise RuntimeError("Pillow not installed")

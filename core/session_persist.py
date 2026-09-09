@@ -8,17 +8,20 @@ OAuth on the Google side is still valid. We store a signed, opaque
 cookie with the username and read it back at every app start.
 
 The cookie is HMAC-signed with a server secret (``st.secrets["auth"]
-["cookie_secret"]`` if present, otherwise a constant fallback so the
-feature still works in local development).
+["cookie_secret"]`` if present, otherwise a random per-process secret so
+cookies can never be forged with a publicly known key).
 """
 from __future__ import annotations
 
 import hmac
 import hashlib
+import secrets as _pysecrets
 import time
 from typing import Optional
 
 import streamlit as st
+
+from core.secrets import secret_section
 
 try:
     import extra_streamlit_components as stx  # type: ignore
@@ -29,12 +32,17 @@ except Exception:  # pragma: no cover - optional dependency
 
 _COOKIE_NAME = "strelokai_session"
 _COOKIE_TTL_DAYS = 30
-_DEFAULT_SECRET = "strelokai-dev-secret-change-in-secrets-toml"
+
+# When no ``[auth] cookie_secret`` is configured we sign cookies with a random
+# per-process secret. Sessions then survive websocket reconnects but not a
+# server restart. This is deliberate: a hard-coded fallback secret would let
+# anyone forge a login cookie for any username.
+_PROCESS_SECRET = _pysecrets.token_hex(32)
 
 
 def _secret() -> str:
-    auth_cfg = st.secrets.get("auth", {}) if hasattr(st, "secrets") else {}
-    return auth_cfg.get("cookie_secret", _DEFAULT_SECRET)
+    configured = secret_section("auth").get("cookie_secret")
+    return str(configured) if configured else _PROCESS_SECRET
 
 
 def _sign(payload: str) -> str:

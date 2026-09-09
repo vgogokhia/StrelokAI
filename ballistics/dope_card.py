@@ -44,6 +44,7 @@ def build_dope_table(
     range_start_m: int = 100,
     range_end_m: int = 1500,
     range_step_m: int = 50,
+    ranges_m: Optional[List[float]] = None,
 ) -> List[DopeRow]:
     """Build a dope table in a single solver call.
 
@@ -52,6 +53,8 @@ def build_dope_table(
     half-value column is produced by simple scaling (linear in crosswind
     component, accurate to a few percent for sub-transonic flight).
     """
+    if ranges_m:
+        range_end_m = int(max(ranges_m)) + 1
     solution = calculate_solution(
         muzzle_velocity_mps=muzzle_velocity_mps,
         bc_g7=bc_val if drag_model == "G7" else None,
@@ -73,14 +76,19 @@ def build_dope_table(
     )
 
     rows: List[DopeRow] = []
-    targets = list(range(range_start_m, range_end_m + 1, range_step_m))
+    if ranges_m is not None:
+        # Explicit sample points (e.g. yard multiples converted to metres);
+        # at_range() interpolates between integrator points.
+        targets = [float(r) for r in ranges_m]
+    else:
+        targets = [float(r) for r in range(range_start_m, range_end_m + 1, range_step_m)]
     for r in targets:
-        pt = solution.at_range(float(r))
+        pt = solution.at_range(r)
         if pt is None:
             continue
         rows.append(
             DopeRow(
-                range_m=r,
+                range_m=int(round(r)),
                 drop_mrad=pt.drop_mrad,
                 drop_moa=pt.drop_mrad * 3.4377,  # 1 mrad = 3.4377 MOA
                 wind_mrad=pt.windage_mrad,

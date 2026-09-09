@@ -4,8 +4,9 @@ Published-table validation harness.
 Runs the solver against published dope tables bundled as JSON fixtures
 in ``tests/fixtures/published_tables``. Each fixture defines a load
 and a list of range bands with min/max acceptable drop and velocity
-windows. Tolerances are intentionally wide (~0.3 MRAD at long range)
-because the fixtures are field-grade references, not JBM bit-for-bit.
+windows. Fixtures carry either exact reference values (``drop_mrad``/``vel_mps``
+with a ``tolerance`` block; generated from py_ballisticcalc on the same
+BRL/JBM drag tables) or legacy min/max windows.
 
 Adding a new table is a fixture-only change — drop a JSON file in the
 fixtures directory with the schema in ``308_175_smk_icao.json`` and
@@ -60,22 +61,33 @@ def test_published_table_rows(fixture):
         twist_rate_inches=inputs.get("twist_rate_inches", 10.0),
     )
 
+    tol = fixture.get("tolerance", {})
+    drop_rel = float(tol.get("drop_mrad_rel", 0.03))
+    drop_abs = float(tol.get("drop_mrad_abs", 0.05))
+    vel_rel = float(tol.get("vel_mps_rel", 0.02))
+
     for row in expected_rows:
         r = row["range_m"]
         pt = solution.at_range(float(r))
         assert pt is not None, f"{label}: no trajectory point at {r} m"
 
-        drop_min = row["drop_mrad_min"]
-        drop_max = row["drop_mrad_max"]
-        assert drop_min <= pt.drop_mrad <= drop_max, (
-            f"{label} @ {r} m: drop {pt.drop_mrad:.3f} MRAD "
-            f"outside [{drop_min}, {drop_max}]"
-        )
+        if "drop_mrad" in row:
+            ref = float(row["drop_mrad"])
+            assert pt.drop_mrad == pytest.approx(ref, abs=max(drop_abs, abs(ref) * drop_rel)), (
+                f"{label} @ {r} m: drop {pt.drop_mrad:.3f} MRAD vs reference {ref}"
+            )
+        else:
+            drop_min, drop_max = row["drop_mrad_min"], row["drop_mrad_max"]
+            assert drop_min <= pt.drop_mrad <= drop_max, (
+                f"{label} @ {r} m: drop {pt.drop_mrad:.3f} MRAD outside [{drop_min}, {drop_max}]"
+            )
 
-        if "vel_mps_min" in row and "vel_mps_max" in row:
-            vmin = row["vel_mps_min"]
-            vmax = row["vel_mps_max"]
+        if "vel_mps" in row:
+            assert pt.velocity_mps == pytest.approx(float(row["vel_mps"]), rel=vel_rel), (
+                f"{label} @ {r} m: velocity {pt.velocity_mps:.0f} m/s vs reference {row['vel_mps']}"
+            )
+        elif "vel_mps_min" in row and "vel_mps_max" in row:
+            vmin, vmax = row["vel_mps_min"], row["vel_mps_max"]
             assert vmin <= pt.velocity_mps <= vmax, (
-                f"{label} @ {r} m: velocity {pt.velocity_mps:.0f} m/s "
-                f"outside [{vmin}, {vmax}]"
+                f"{label} @ {r} m: velocity {pt.velocity_mps:.0f} m/s outside [{vmin}, {vmax}]"
             )

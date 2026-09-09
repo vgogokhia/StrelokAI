@@ -2,16 +2,17 @@
 StrelokAI - Reticle Holdover Visualization
 Renders a MIL-based reticle with a red aiming dot at the current
 (windage, drop) solution, plus a few simple reticle options.
-Version: 1.1.0 — responsive SVG + scope recognition moved in here.
+Version: 1.2.0 — shared solver (same wind/heading as Calculator), unit-aware
 """
 import os
 import time
 import streamlit as st
-import streamlit.components.v1 as components
 
-from ballistics.solver import calculate_solution
+from core.solve import solve_current
+from core.units import fmt_range, fmt_angular
 from ai.scope_recognition import identify_scope
-from config import DEFAULT_LATITUDE, GEMINI_API_KEY as _CONFIG_GEMINI_KEY
+from config import GEMINI_API_KEY as _CONFIG_GEMINI_KEY
+from core.secrets import secret_value
 
 
 # ---------------------------------------------------------------------------
@@ -26,12 +27,7 @@ _SCOPE_WINDOW_SEC = 3600
 
 
 def _resolve_gemini_key() -> str:
-    try:
-        if "GEMINI_API_KEY" in st.secrets:
-            return str(st.secrets["GEMINI_API_KEY"]).strip()
-    except Exception:
-        pass
-    return (os.getenv("GEMINI_API_KEY") or _CONFIG_GEMINI_KEY or "").strip()
+    return str(secret_value("GEMINI_API_KEY", _CONFIG_GEMINI_KEY) or "").strip()
 
 
 def _check_rate_limit(username: str):
@@ -198,12 +194,9 @@ def _render_scope_recognition():
 
 def render_reticle():
     st.markdown("### 🔭 Reticle Holdover")
-    st.caption("Red dot marks aim-point at the current target range.")
+    st.caption("Red dot = the reticle mark to hold on the target at the current range (holdover / wind hold).")
 
     _render_scope_recognition()
-
-    profile = st.session_state.profile
-    target_range = float(st.session_state.get("target_range", 500))
 
     selected = st.selectbox(
         "Reticle",
@@ -213,41 +206,22 @@ def render_reticle():
     )
 
     try:
-        solution = calculate_solution(
-            muzzle_velocity_mps=profile["muzzle_velocity"],
-            bc_g7=profile["bc_g7"] if profile.get("drag_model", "G7") == "G7" else None,
-            bc_g1=profile["bc_g7"] if profile.get("drag_model", "G7") == "G1" else None,
-            mass_grains=profile["mass_grains"],
-            diameter_inches=profile["diameter"],
-            zero_range_m=profile["zero_range"],
-            target_range_m=target_range,
-            temperature_c=float(st.session_state.get("temp_c", 15.0)),
-            pressure_mbar=float(st.session_state.get("pressure", 1013.0)),
-            humidity_pct=float(st.session_state.get("humidity", 50.0)),
-            wind_speed_mps=float(st.session_state.get("wind_speed", 0.0)),
-            wind_direction_deg=float(st.session_state.get("wind_dir_deg", 270.0)),
-            latitude_deg=DEFAULT_LATITUDE,
-            bullet_length_in=profile.get("bullet_length_in", 1.0),
-            twist_rate_inches=profile["twist_rate"],
-            twist_direction=profile.get("twist_direction", "right"),
-            sight_height_mm=profile["sight_height"],
-            elevation_angle_deg=float(st.session_state.get("shot_angle_deg", 0.0)),
-            cant_angle_deg=float(st.session_state.get("cant_angle_deg", 0.0)),
-        )
+        inputs, solution = solve_current()
     except Exception as exc:
         st.error(f"Solver error: {exc}")
         return
+    target_range = inputs.target_range
 
     pt = solution.at_range(target_range)
     if pt is None:
         st.warning("No trajectory point at that range.")
         return
 
-    # Hold UP means aim above target → dot appears below center (y positive downward in SVG)
+    # The red dot is the reticle mark you place ON the target. The bullet
+    # impacts low/left of the crosshair, so the mark to use is the one the
+    # same distance below/left of centre (SVG y grows downward, hence -drop).
     hold_x = pt.windage_mrad
-    hold_y = -pt.drop_mrad  # drop_mrad negative = need to aim UP → dot goes BELOW center in view
-    # In our view, positive y is downward. Aiming "up" means holdover dot is below the target dot,
-    # so we mirror accordingly. Keep simple and consistent.
+    hold_y = -pt.drop_mrad
 
     svg = _RETICLES[selected](hold_x, hold_y)
     # Responsive wrapper: square that fills available width up to _SVG_SIZE,
@@ -256,9 +230,10 @@ def render_reticle():
         f'<div style="width:100%;max-width:{_SVG_SIZE}px;aspect-ratio:1/1;'
         f'margin:0 auto;">{svg}</div>'
     )
-    components.html(wrapper, height=_SVG_SIZE + 20)
+    st.html(wrapper)
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Range", f"{int(target_range)} m")
-    c2.metric("Elev Hold", f"{pt.drop_mrad:+.2f} MRAD")
-    c3.metric("Wind Hold", f"{pt.windage_mrad:+.2f} MRAD")
+    c1.metric("Range", fmt_range(target_range))
+    c2.metric("Elev Hold", fmt_angular(pt.drop_mrad, signed=True))
+    c3.metric("Wind Hold", fmt_angular(pt.windage_mrad, signed=True))
+    st.caption("Reticle grid is drawn in MRAD; holds above are in your selected angular unit.")

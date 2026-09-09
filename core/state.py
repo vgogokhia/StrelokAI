@@ -1,7 +1,7 @@
 """
 StrelokAI - Session State Initialization
 Initializes all Streamlit session state variables used across the app.
-Version: 1.0.0
+Version: 1.2.0
 """
 import streamlit as st
 
@@ -65,6 +65,22 @@ def init_session_state():
         st.session_state.compass_heading = 0.0
     if "use_compass" not in st.session_state:
         st.session_state.use_compass = False
+    if "altitude_m" not in st.session_state:
+        st.session_state.altitude_m = 0.0
+
+    # Scope / display preferences
+    if "angular_unit" not in st.session_state:
+        st.session_state.angular_unit = "MRAD"
+    if "click_value" not in st.session_state:
+        st.session_state.click_value = "0.1 MRAD"
+
+    # Location (weather + Coriolis). Defaults from config until the user
+    # sets it or taps "Use my location".
+    from config import DEFAULT_LATITUDE, DEFAULT_LONGITUDE
+    if "location_lat" not in st.session_state:
+        st.session_state.location_lat = DEFAULT_LATITUDE
+    if "location_lon" not in st.session_state:
+        st.session_state.location_lon = DEFAULT_LONGITUDE
 
     # Auth session state
     if "logged_in" not in st.session_state:

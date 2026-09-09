@@ -1,8 +1,10 @@
 """
 StrelokAI - Target & Wind Component
 Renders target distance slider, wind speed/direction inputs, and phone compass widget.
-Version: 2.1.0 - full imperial support
+Version: 2.2.0 - compass declared once, recent ranges, dedup compass events
 """
+from pathlib import Path
+
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -10,6 +12,12 @@ from core.units import (
     is_imperial, range_label, speed_label,
     input_range_from_m, input_range_to_m,
     input_speed_from_mps, input_speed_to_mps,
+)
+
+# Phone compass custom component — declared once at import time (declaring a
+# component on every rerun re-registers it and slows the page).
+_compass_comp = components.declare_component(
+    "compass_widget", path=str(Path(__file__).parent / "compass")
 )
 
 # Quick-range presets — round numbers in both systems.
@@ -21,9 +29,9 @@ _QUICK_RANGES_YD = [100, 300, 500, 800, 1000]
 # Range sync (always stores metres in session_state.target_range)
 # ---------------------------------------------------------------------------
 
-def _display_to_m(display_val: int) -> int:
-    """Convert a display-unit value to metres."""
-    return int(round(input_range_to_m(display_val)))
+def _display_to_m(display_val: int) -> float:
+    """Convert a display-unit value to metres (kept to 0.1 m so 800 yd stays 800 yd)."""
+    return round(input_range_to_m(display_val), 1)
 
 
 def _m_to_display(meters: int) -> int:
@@ -97,8 +105,18 @@ def render_target_section(col):
                 label_visibility="collapsed",
             )
 
-        # Unit label + current value
-        st.caption(f"Distance: **{disp} {unit}**")
+        # Unit label + current value (+ recently ranged targets from the rangefinder)
+        recents = [r for r in st.session_state.get("recent_ranges", []) if r != int(st.session_state.target_range)]
+        if recents:
+            rc = st.columns([2] + [1] * len(recents[:4]), gap="small")
+            rc[0].caption(f"Distance: **{disp} {unit}** · recent:")
+            for i, r_m in enumerate(recents[:4]):
+                rc[i + 1].button(
+                    f"{_m_to_display(r_m)}", key=f"recent_{r_m}_{unit}",
+                    width="stretch", on_click=_sync_quick, args=(r_m,),
+                )
+        else:
+            st.caption(f"Distance: **{disp} {unit}**")
 
         # Row 2: quick chips + angle/cant popover
         # Use round numbers in both systems; for imperial, chip values are
@@ -117,7 +135,7 @@ def render_target_section(col):
             if chip_cols[i].button(
                 f"{label}",
                 key=f"qr_{label}_{unit}",
-                use_container_width=True,
+                width="stretch",
                 type="primary" if active else "secondary",
                 on_click=_sync_quick,
                 args=(r_m,),
@@ -125,7 +143,7 @@ def render_target_section(col):
                 pass
         with chip_cols[-1]:
             try:
-                with st.popover("⚙", use_container_width=True):
+                with st.popover("⚙", width="stretch"):
                     _render_angle_cant_inputs()
             except Exception:
                 with st.expander("⚙ Angle/Cant", expanded=False):
@@ -179,10 +197,6 @@ def render_wind_section(col):
         )
         st.session_state.wind_dir_deg = wind_dir_deg
 
-        # Compass heading
-        if st.session_state.compass_heading > 0:
-            st.success(f"🧭 Heading: **{int(st.session_state.compass_heading)}°**")
-
         shooting_dir = st.number_input(
             "Shooting Direction (°)",
             min_value=0, max_value=359,
@@ -193,11 +207,10 @@ def render_wind_section(col):
         st.session_state.compass_heading = shooting_dir
 
         # Phone compass widget
-        from pathlib import Path
-        _compass_dir = Path(__file__).parent / "compass"
-        _compass_comp = components.declare_component("compass_widget", path=str(_compass_dir))
         _compass_val = _compass_comp(key="compass_input", default=None)
-        if isinstance(_compass_val, dict) and "heading" in _compass_val:
+        if (isinstance(_compass_val, dict) and "heading" in _compass_val
+                and _compass_val.get("timestamp") != st.session_state.get("_compass_ts")):
+            st.session_state._compass_ts = _compass_val.get("timestamp")
             new_h = int(_compass_val["heading"])
             if new_h != st.session_state.compass_heading:
                 st.session_state.compass_heading = new_h
@@ -222,6 +235,6 @@ def render_wind_section(col):
             rel_desc = "→ From Left"
         else:
             rel_desc = "↘ 10 o'clock"
-        st.caption(f"**Relative: {rel_desc}**")
+        st.caption(f"**Relative: {rel_desc}** ({wind_deg:.0f}° off the muzzle)")
 
         return wind_deg

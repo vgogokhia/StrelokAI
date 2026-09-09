@@ -17,6 +17,8 @@ Coordinate convention (world frame):
     y = vertical (positive up)
     z = horizontal right (perpendicular to x)
 Drop is reported as y-offset from line-of-sight (negative = below).
+Windage is the impact offset from line-of-sight (negative = left, positive =
+right). A wind FROM the right therefore gives negative windage.
 """
 import math
 import os
@@ -432,8 +434,13 @@ class BallisticSolver:
         x, y, z = 0.0, -rifle.sight_height_m, 0.0
         t = 0.0
 
+        # Air velocity in the world frame. Wind is given as the direction it
+        # blows FROM, so a headwind (from the front) moves air toward -x and a
+        # wind from the RIGHT moves air toward -z, pushing the bullet LEFT.
+        # windage_m is therefore the bullet's impact offset: positive = right,
+        # consistent with spin drift (right twist -> right) and Coriolis.
         wind_x = -wind.headwind_component
-        wind_z = wind.crosswind_component
+        wind_z = -wind.crosswind_component
 
         state = (x, y, z, vx, vy, vz)
         trajectory: List[TrajectoryPoint] = []

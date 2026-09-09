@@ -1,7 +1,7 @@
 """
 StrelokAI - Sidebar Profiles Component
 Renders rifle/cartridge profile inputs and save/load functionality.
-Version: 2.1.0
+Version: 2.2.0 - unit-aware rifle/ammo inputs, Firestore failures no longer crash
 """
 import streamlit as st
 from profiles import (
@@ -9,6 +9,22 @@ from profiles import (
     save_full_profile, load_full_profile, list_full_profiles
 )
 from ballistics.bullet_library import load_all as load_bullet_library
+from core.units import (
+    is_imperial, range_label, velocity_label, temp_label, sight_height_label,
+    input_range_from_m, input_range_to_m,
+    input_sight_height_from_mm, input_sight_height_to_mm,
+    input_velocity_from_mps, input_velocity_to_mps,
+    input_temp_from_c, input_temp_to_c, roundtrip,
+)
+
+
+def _firestore_call(fn, *args, default=None):
+    """Run a Firestore-backed call; on failure show a compact error instead of crashing."""
+    try:
+        return fn(*args)
+    except Exception as exc:
+        st.warning(f"Profile storage unavailable: {exc}")
+        return default
 
 def render_sidebar_profiles():
     st.markdown("### 📋 Active Profile")
@@ -18,7 +34,7 @@ def render_sidebar_profiles():
         if st.session_state.logged_in:
             from profiles import list_rifle_profiles, load_rifle_profile, save_rifle_profile, RifleProfile
             
-            saved_rifles = list_rifle_profiles(st.session_state.username)
+            saved_rifles = _firestore_call(list_rifle_profiles, st.session_state.username, default=[])
             if saved_rifles:
                 st.markdown("**Load Rifle Profile**")
                 selected_rifle = st.selectbox(
@@ -31,7 +47,7 @@ def render_sidebar_profiles():
                 # so re-renders don't keep reloading (and clobbering edits).
                 if selected_rifle != "-- Select --" and \
                         st.session_state.get("_last_loaded_rifle") != selected_rifle:
-                    loaded = load_rifle_profile(st.session_state.username, selected_rifle)
+                    loaded = _firestore_call(load_rifle_profile, st.session_state.username, selected_rifle)
                     if loaded:
                         st.session_state.profile.update({
                             "zero_range": loaded.zero_range,
@@ -45,13 +61,14 @@ def render_sidebar_profiles():
             
             st.markdown("**Save Rifle Profile**")
             save_rifle_name = st.text_input("Name:", key="save_rifle_name", placeholder="e.g. Rem700 308Win")
-            if st.button("💾 Save Rifle", use_container_width=True):
+            if st.button("💾 Save Rifle", width="stretch"):
                 if save_rifle_name:
                     new_rifle = RifleProfile(
                         name=save_rifle_name,
                         zero_range=st.session_state.profile["zero_range"],
                         sight_height=st.session_state.profile["sight_height"],
-                        twist_rate=st.session_state.profile["twist_rate"]
+                        twist_rate=st.session_state.profile["twist_rate"],
+                        twist_direction=st.session_state.profile.get("twist_direction", "right"),
                     )
                     success, msg = save_rifle_profile(st.session_state.username, new_rifle)
                     if success:
@@ -64,14 +81,21 @@ def render_sidebar_profiles():
                     st.error("Enter a name")
         
         st.divider()
-        zero_range = st.number_input(
-            "Zero Range (m)",
-            min_value=25.0, max_value=500.0, value=st.session_state.profile["zero_range"], step=25.0
+        imp = is_imperial()
+        zr_seed = float(round(input_range_from_m(st.session_state.profile["zero_range"]), 0))
+        zr_disp = st.number_input(
+            f"Zero Range ({range_label()})",
+            min_value=25.0, max_value=550.0, value=zr_seed, step=25.0,
         )
-        sight_height = st.number_input(
-            "Sight Height (mm)",
-            min_value=20.0, max_value=80.0, value=st.session_state.profile["sight_height"], step=1.0
+        zero_range = roundtrip(st.session_state.profile["zero_range"], zr_seed, zr_disp, input_range_to_m)
+        sh_seed = float(round(input_sight_height_from_mm(st.session_state.profile["sight_height"]), 2))
+        sh_disp = st.number_input(
+            f"Sight Height ({sight_height_label()})",
+            min_value=0.5 if imp else 15.0, max_value=4.0 if imp else 100.0,
+            value=sh_seed, step=0.05 if imp else 1.0, format="%.2f" if imp else "%.0f",
+            help="Centre of scope tube to centre of bore.",
         )
+        sight_height = roundtrip(st.session_state.profile["sight_height"], sh_seed, sh_disp, input_sight_height_to_mm)
         twist_rate = st.number_input(
             "Twist Rate (1:X inches)",
             min_value=6.0, max_value=20.0, value=st.session_state.profile["twist_rate"], step=0.25
@@ -90,7 +114,7 @@ def render_sidebar_profiles():
         if st.session_state.logged_in:
             from profiles import list_cartridge_profiles, load_cartridge_profile, save_cartridge_profile, CartridgeProfile
             
-            saved_ammo = list_cartridge_profiles(st.session_state.username)
+            saved_ammo = _firestore_call(list_cartridge_profiles, st.session_state.username, default=[])
             if saved_ammo:
                 st.markdown("**Load Ammo Profile**")
                 selected_ammo = st.selectbox(
@@ -101,7 +125,7 @@ def render_sidebar_profiles():
                 )
                 if selected_ammo != "-- Select --" and \
                         st.session_state.get("_last_loaded_ammo") != selected_ammo:
-                    loaded = load_cartridge_profile(st.session_state.username, selected_ammo)
+                    loaded = _firestore_call(load_cartridge_profile, st.session_state.username, selected_ammo)
                     if loaded:
                         # The UI reuses the "bc_g7" session key for whichever BC
                         # is active, regardless of drag_model. Saves zero out the
@@ -126,7 +150,7 @@ def render_sidebar_profiles():
             
             st.markdown("**Save Ammo Profile**")
             save_ammo_name = st.text_input("Name:", key="save_ammo_name", placeholder="e.g. Hornady 175gr")
-            if st.button("💾 Save Ammo", use_container_width=True):
+            if st.button("💾 Save Ammo", width="stretch"):
                 if save_ammo_name:
                     # In current state, bc_g7 key maps to whatever BC input is currently active. 
                     # We might want to separate them later, but for now we'll just save it based on drag_model
@@ -168,7 +192,7 @@ def render_sidebar_profiles():
                 help="Load published bullet specs. You can still edit anything below and save as your own profile.",
             )
             if picked != "-- Load Preset --":
-                if st.button("⬇ Apply Preset", use_container_width=True, key="apply_bullet_preset"):
+                if st.button("⬇ Apply Preset", width="stretch", key="apply_bullet_preset"):
                     preset = next((b for b in library if b.label == picked), None)
                     if preset is not None:
                         st.session_state.profile.update({
@@ -221,22 +245,30 @@ def render_sidebar_profiles():
 
         st.divider()
         st.markdown("**Velocity & Temperature Settings**")
-        col1, col2, col3 = st.columns(3)
+        imp = is_imperial()
+        col1, col2 = st.columns(2)
         with col1:
-            muzzle_velocity = st.number_input(
-                "Muzzle Velocity (m/s)", 
-                min_value=200.0, max_value=1500.0, value=st.session_state.profile["muzzle_velocity"], step=1.0
+            mv_seed = float(round(input_velocity_from_mps(st.session_state.profile["muzzle_velocity"]), 0 if imp else 1))
+            mv_disp = st.number_input(
+                f"Muzzle Velocity ({velocity_label()})",
+                min_value=600.0 if imp else 200.0, max_value=5000.0 if imp else 1500.0,
+                value=mv_seed, step=5.0 if imp else 1.0,
             )
+            muzzle_velocity = roundtrip(st.session_state.profile["muzzle_velocity"], mv_seed, mv_disp, input_velocity_to_mps)
         with col2:
-            mv_temp_c = st.number_input(
-                "MV At Temp (°C)", 
-                min_value=-50.0, max_value=60.0, value=st.session_state.profile.get("mv_temp_c", 15.0), step=1.0
+            mvt_seed = float(round(input_temp_from_c(st.session_state.profile.get("mv_temp_c", 15.0)), 0))
+            mvt_disp = st.number_input(
+                f"MV measured at ({temp_label()})",
+                min_value=-60.0 if imp else -50.0, max_value=140.0 if imp else 60.0,
+                value=mvt_seed, step=1.0,
             )
-        with col3:
-            temp_sensitivity = st.number_input(
-                "Sensitivity (%/°C)", 
-                min_value=0.0, max_value=5.0, value=st.session_state.profile.get("temp_sensitivity", 0.1), step=0.05, format="%.2f"
-            )
+            mv_temp_c = roundtrip(st.session_state.profile.get("mv_temp_c", 15.0), mvt_seed, mvt_disp, input_temp_to_c)
+        temp_sensitivity = st.number_input(
+            "Powder temp sensitivity (%/°C)",
+            min_value=0.0, max_value=5.0, value=st.session_state.profile.get("temp_sensitivity", 0.1),
+            step=0.05, format="%.2f",
+            help="MV change per °C of powder temperature. ~0.1 %/°C is typical for temp-stable powders; set 0 to disable.",
+        )
     
     # Update profile tracking
     st.session_state.profile.update({

@@ -30,11 +30,14 @@ def test_cant_right_tilts_windage_positive(load_308_175smk):
     b = base.at_range(800)
     c = canted.at_range(800)
 
-    # Drop magnitude largely preserved (cos(5°) ≈ 0.996)
-    assert c.drop_m == pytest.approx(b.drop_m * math.cos(math.radians(5)), abs=0.02)
-    # A horizontal offset emerges proportional to drop * sin(cant)
-    expected_wind = b.drop_m * math.sin(math.radians(5))
-    assert c.windage_m == pytest.approx(b.windage_m + expected_wind, abs=0.02)
+    # Cant is a rigid rotation of the (drop, windage) vector by the cant angle.
+    # The base windage (spin drift + Coriolis) is not zero, so both components
+    # pick up a term from the other.
+    phi = math.radians(5)
+    assert c.drop_m == pytest.approx(
+        b.drop_m * math.cos(phi) - b.windage_m * math.sin(phi), abs=0.005)
+    assert c.windage_m == pytest.approx(
+        b.drop_m * math.sin(phi) + b.windage_m * math.cos(phi), abs=0.005)
 
 
 def test_cant_preserves_magnitude(load_308_175smk):

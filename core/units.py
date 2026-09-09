@@ -147,3 +147,85 @@ def pressure_label() -> str:
 
 def alt_label() -> str:
     return "ft" if is_imperial() else "m"
+
+
+# --- Angular units & scope clicks -----------------------------------------
+
+MRAD_TO_MOA = 3.43775
+
+# Label -> click size in MRAD
+CLICK_OPTIONS = {
+    "0.1 MRAD": 0.1,
+    "0.05 MRAD": 0.05,
+    "1/4 MOA": 0.25 / MRAD_TO_MOA,
+    "1/8 MOA": 0.125 / MRAD_TO_MOA,
+    "1/2 MOA": 0.5 / MRAD_TO_MOA,
+}
+
+
+def angular_unit() -> str:
+    """'MRAD' or 'MOA' as chosen in Settings."""
+    return st.session_state.get("angular_unit", "MRAD")
+
+
+def click_value_mrad() -> float:
+    label = st.session_state.get("click_value", "0.1 MRAD")
+    return CLICK_OPTIONS.get(label, 0.1)
+
+
+def to_angular(mrad: float) -> float:
+    return mrad * MRAD_TO_MOA if angular_unit() == "MOA" else mrad
+
+
+def fmt_angular(mrad: float, precision: int = 2, signed: bool = False) -> str:
+    val = to_angular(mrad)
+    spec = f"{{:{'+' if signed else ''}.{precision}f}}"
+    return f"{spec.format(val)} {angular_unit()}"
+
+
+def clicks_for(mrad: float) -> int:
+    """Number of scope clicks (rounded to nearest) for an angular value."""
+    return int(round(abs(mrad) / click_value_mrad()))
+
+
+# --- Linear drop at target -----------------------------------------------
+
+def fmt_drop_linear(meters: float) -> str:
+    if is_imperial():
+        return f"{meters * 39.3701:.1f} in"
+    return f"{meters * 100:.1f} cm"
+
+
+# --- Small-length inputs (sight height) ----------------------------------
+
+def sight_height_label() -> str:
+    return "in" if is_imperial() else "mm"
+
+
+def input_sight_height_to_mm(value: float) -> float:
+    return value * 25.4 if is_imperial() else value
+
+
+def input_sight_height_from_mm(mm: float) -> float:
+    return mm / 25.4 if is_imperial() else mm
+
+
+def input_velocity_to_mps(value: float) -> float:
+    return value * _FPS_TO_MPS if is_imperial() else value
+
+
+def input_velocity_from_mps(mps: float) -> float:
+    return mps * _MPS_TO_FPS if is_imperial() else mps
+
+
+def roundtrip(stored_metric: float, shown: float, entered: float, to_metric) -> float:
+    """Keep the stored metric value unless the user actually changed the field.
+
+    Display values are rounded (e.g. 850 m/s → 2789 fps), so converting the
+    unchanged display value back would slowly drift the stored number
+    (850 → 850.09). Only convert when the widget value differs from what
+    was seeded into it.
+    """
+    if abs(float(entered) - float(shown)) < 1e-9:
+        return float(stored_metric)
+    return float(to_metric(entered))

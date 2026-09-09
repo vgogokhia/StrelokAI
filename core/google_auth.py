@@ -1,11 +1,13 @@
 """
 StrelokAI - Custom Google Auth Module
 Bypasses streamlit-google-auth to handle OAuth2 directly for better stability.
-Version: 1.0.0
+Version: 1.1.0 - silent when not configured
 """
 import streamlit as st
 import httpx
 import urllib.parse
+
+from core.secrets import secret_section
 
 def get_google_auth_url(client_id: str, redirect_uri: str) -> str:
     """Generate the Google OAuth2 authorization URL."""
@@ -47,13 +49,14 @@ def get_user_info(access_token: str) -> dict:
 
 def handle_google_oauth():
     """Main OAuth handler to be called in the Streamlit app flow."""
-    google_config = st.secrets.get("google", {})
+    google_config = secret_section("google")
     client_id = google_config.get("client_id")
     client_secret = google_config.get("client_secret")
     redirect_uri = google_config.get("redirect_uri", "https://strelokai.streamlit.app")
-    
+
+    # Not configured is a normal state (local dev) — not an error to display.
     if not client_id or not client_secret:
-        return False, "Google auth not configured in secrets"
+        return False, ""
         
     query_params = st.query_params
     

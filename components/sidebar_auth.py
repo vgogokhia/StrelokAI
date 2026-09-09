@@ -1,15 +1,24 @@
 """
 StrelokAI - Sidebar Authentication Component
 Renders Email login/signup forms and Google sign-in button in the sidebar.
-Version: 1.2.0
+Version: 1.3.0 - graceful when accounts/Firestore are not configured
 """
 import streamlit as st
 from auth import create_user, authenticate_user
 from core.session_persist import save_session_cookie, clear_session_cookie
+from core.secrets import secret_section
+from core.firestore_client import is_firestore_configured
 
 def render_sidebar_auth():
     if not st.session_state.logged_in:
         st.markdown("### 🔐 Login")
+
+        if not is_firestore_configured():
+            st.info(
+                "Accounts are not configured on this server, so profiles can't be "
+                "saved. The calculator works fully without logging in."
+            )
+            return
 
         auth_tab = st.radio(
             "auth_mode",
@@ -30,7 +39,7 @@ def render_sidebar_auth():
             username_val = st.text_input("Username", key=f"{form_key}_username")
             password_val = st.text_input("Password", type="password", key=f"{form_key}_password")
             submitted = st.form_submit_button(
-                submit_label, type="primary", use_container_width=True
+                submit_label, type="primary", width="stretch"
             )
 
         if submitted:
@@ -39,12 +48,16 @@ def render_sidebar_auth():
             if not username_val or not password_val:
                 st.error("Please enter username and password")
             else:
-                if is_signup:
-                    success, message = create_user(username_val, password_val)
-                    welcome = f"Account created! Welcome, {username_val}!"
-                else:
-                    success, message = authenticate_user(username_val, password_val)
-                    welcome = f"Welcome, {username_val}!"
+                try:
+                    if is_signup:
+                        success, message = create_user(username_val, password_val)
+                        welcome = f"Account created! Welcome, {username_val}!"
+                    else:
+                        success, message = authenticate_user(username_val, password_val)
+                        welcome = f"Welcome, {username_val}!"
+                except Exception as exc:
+                    success, message = False, f"Account service unavailable: {exc}"
+                    welcome = ""
 
                 if success:
                     st.session_state.logged_in = True
@@ -71,7 +84,7 @@ def render_sidebar_auth():
             st.success(st.session_state.auth_message)
             st.session_state.auth_message = None
         
-        if st.button("Logout", use_container_width=True):
+        if st.button("Logout", width="stretch"):
             st.session_state.logged_in = False
             st.session_state.username = None
             # Also clear Google auth if used
@@ -86,7 +99,7 @@ def render_sidebar_auth():
 
 def _render_google_login():
     """Render a styled Google sign-in button that redirects to the standard OAuth flow."""
-    google_config = st.secrets.get("google", {})
+    google_config = secret_section("google")
     client_id = google_config.get("client_id", "")
     redirect_uri = google_config.get("redirect_uri", "https://strelokai.streamlit.app")
     
@@ -104,9 +117,9 @@ def _render_google_login():
         st.link_button(
             "🔵 Sign in with Google",
             url=auth_url,
-            use_container_width=True,
+            width="stretch",
         )
         st.caption("Opens in a new tab. You can close either tab after logging in.")
     else:
-        st.button("🔵 Sign in with Google", disabled=True, use_container_width=True)
+        st.button("🔵 Sign in with Google", disabled=True, width="stretch")
         st.caption("Google credentials not configured")

@@ -1,5 +1,5 @@
 """
-StrelokAI - Safe access to Streamlit secrets.
+ballistics.ge - Safe access to Streamlit secrets.
 
 ``st.secrets`` raises ``StreamlitSecretNotFoundError`` when no
 ``secrets.toml`` exists at all (typical for a fresh local checkout), and

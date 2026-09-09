@@ -1,5 +1,5 @@
 """
-StrelokAI - Unit System Formatters
+ballistics.ge - Unit System Formatters
 Centralized formatters that respect ``st.session_state.units``
 ("metric" | "imperial"). Use these helpers anywhere user-facing
 numbers are rendered so the toggle flips everything consistently.

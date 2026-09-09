@@ -1,5 +1,5 @@
 """
-StrelokAI - Atmosphere & Weather Component
+ballistics.ge - Atmosphere & Weather Component
 Weather sync (Open-Meteo, for the user's own location) and atmospheric inputs.
 Version: 1.3.0 - location picker + browser geolocation, honest failure handling
 """

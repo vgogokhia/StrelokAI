@@ -1,5 +1,5 @@
 """
-StrelokAI - Session State Initialization
+ballistics.ge - Session State Initialization
 Initializes all Streamlit session state variables used across the app.
 Version: 1.2.0
 """

@@ -1,5 +1,5 @@
 """
-StrelokAI - Sidebar Profiles Component
+ballistics.ge - Sidebar Profiles Component
 Renders rifle/cartridge profile inputs and save/load functionality.
 Version: 2.2.0 - unit-aware rifle/ammo inputs, Firestore failures no longer crash
 """

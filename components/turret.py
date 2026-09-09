@@ -1,5 +1,5 @@
 """
-StrelokAI - Turret Visualization
+ballistics.ge - Turret Visualization
 SVG clock-face showing the elevation dial position for the current solution.
 Version: 1.1.0 - shared solver, MRAD/MOA aware
 """

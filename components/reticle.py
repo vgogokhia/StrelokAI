@@ -1,5 +1,5 @@
 """
-StrelokAI - Reticle Holdover Visualization
+ballistics.ge - Reticle Holdover Visualization
 Renders a MIL-based reticle with a red aiming dot at the current
 (windage, drop) solution, plus a few simple reticle options.
 Version: 1.2.0 — shared solver (same wind/heading as Calculator), unit-aware

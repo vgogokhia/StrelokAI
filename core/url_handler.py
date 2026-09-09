@@ -1,5 +1,5 @@
 """
-StrelokAI - URL Query Parameter Handler
+ballistics.ge - URL Query Parameter Handler
 Processes URL query params (e.g. compass heading from mobile device).
 Version: 1.0.0
 """

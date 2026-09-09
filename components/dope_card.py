@@ -1,5 +1,5 @@
 """
-StrelokAI - Dope Card Component
+ballistics.ge - Dope Card Component
 Printable range card with CSV export, in the user's units.
 Version: 1.1.0 - unit-aware ranges, MRAD/MOA, wind reference in user units
 """

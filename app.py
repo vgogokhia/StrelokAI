@@ -1,14 +1,14 @@
 """
-StrelokAI - AI-Powered Ballistic Calculator
+ballistics.ge - Ballistic Calculator
 Main Streamlit Application
-Version: 1.4.0
+Version: 1.5.0
 """
 import streamlit as st
 
 # Page configuration MUST be the first Streamlit command
-from config import APP_NAME, VERSION
+from config import APP_NAME, VERSION, TAGLINE
 st.set_page_config(
-    page_title=f"{APP_NAME} - Ballistic Calculator",
+    page_title=f"{APP_NAME} — Ballistic Calculator | MRAD, MOA, .308, .22 LR",
     page_icon="🎯",
     layout="wide",
     # "auto": open on desktop, collapsed on phones so the solution is visible
@@ -20,6 +20,7 @@ from core.state import init_session_state
 from core.theme import apply_theme
 from core.url_handler import process_query_params
 from core.units import CLICK_OPTIONS
+from core.seo import inject_head_tags, render_header, render_about
 
 from components.sidebar_auth import render_sidebar_auth
 from components.sidebar_profiles import render_sidebar_profiles
@@ -52,6 +53,7 @@ if google_err:
 
 st.session_state.theme = "dark"
 apply_theme(st.session_state.theme)
+inject_head_tags()
 
 # ---------------------------------------------------------------------------
 # Sidebar
@@ -97,6 +99,7 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 # Main tabbed interface
 # ---------------------------------------------------------------------------
+render_header()
 tab_calc, tab_dope, tab_reticle, tab_turret, tab_range = st.tabs(
     ["Calculator", "Dope Card", "Reticle", "Turret", "Range Est."]
 )
@@ -122,7 +125,11 @@ with tab_range:
     render_range_estimator()
 
 st.divider()
-st.caption(f"{APP_NAME} v{VERSION} | Made with ❤️ for precision shooters · your inputs are remembered on this device")
+render_about()
+st.caption(
+    f"© {APP_NAME} · v{VERSION} · free ballistic calculator, made in Georgia 🇬🇪 for precision shooters · "
+    "your inputs are remembered on this device"
+)
 
 # Persist the working state (cookie + Firestore when logged in).
 save_app_state()

@@ -1,5 +1,5 @@
 """
-StrelokAI - Theme & CSS Injection
+ballistics.ge - Theme & CSS Injection
 Applies custom CSS themes (Dark, Red/NVG) to the Streamlit UI.
 Version: 1.0.0
 """

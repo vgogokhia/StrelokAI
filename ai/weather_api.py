@@ -1,5 +1,5 @@
 """
-Weather API integration for StrelokAI
+Weather API integration for ballistics.ge
 Uses Open-Meteo API (free, no registration required).
 Version: 1.1.0 - returns None on failure (no silent fake data), adds elevation
 """

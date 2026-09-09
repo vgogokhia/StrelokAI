@@ -1,5 +1,5 @@
 """
-StrelokAI - Custom Google Auth Module
+ballistics.ge - Custom Google Auth Module
 Bypasses streamlit-google-auth to handle OAuth2 directly for better stability.
 Version: 1.1.0 - silent when not configured
 """
@@ -52,7 +52,7 @@ def handle_google_oauth():
     google_config = secret_section("google")
     client_id = google_config.get("client_id")
     client_secret = google_config.get("client_secret")
-    redirect_uri = google_config.get("redirect_uri", "https://strelokai.streamlit.app")
+    redirect_uri = google_config.get("redirect_uri", "https://ballistics.ge")
 
     # Not configured is a normal state (local dev) — not an error to display.
     if not client_id or not client_secret:

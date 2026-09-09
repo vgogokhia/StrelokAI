@@ -1,5 +1,5 @@
 """
-StrelokAI - Shared "solve the current state" helper.
+ballistics.ge - Shared "solve the current state" helper.
 
 Every tab (Calculator, Reticle, Turret) used to call the solver on its
 own, each with a slightly different set of inputs — the Calculator used

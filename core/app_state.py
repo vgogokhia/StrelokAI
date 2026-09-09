@@ -1,5 +1,5 @@
 """
-StrelokAI - Remember the working state across page refreshes.
+ballistics.ge - Remember the working state across page refreshes.
 
 ``st.session_state`` dies with the browser tab, so every refresh used to
 reset the rifle, ammo, distance, wind and atmosphere to defaults. This

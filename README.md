@@ -1,14 +1,14 @@
-# StrelokAI - AI-Powered Ballistic Calculator
+# ballistics.ge — Ballistic Calculator (formerly StrelokAI)
 
 ## Overview
 
-**StrelokAI** is an external ballistic calculator built with [Streamlit](https://streamlit.io).
+**ballistics.ge** is an external ballistic calculator built with [Streamlit](https://streamlit.io).
 It computes elevation and windage for long-range shooting (RK4 point-mass solver, G1/G7 and
 custom drag curves, spin drift, aero jump, Coriolis, inclination, cant, powder-temperature MV
 compensation), and adds live weather for your location, phone compass heading, a dope card,
 reticle/turret views, a rangefinder, scope recognition via AI, and cloud-saved profiles.
 
-The application is deployed at: **https://strelokai.streamlit.app**
+The application is deployed at: **https://ballistics.ge** (Railway; legacy mirror on Streamlit Cloud).
 
 The solver is validated against an independent implementation (py_ballisticcalc, same BRL/JBM
 drag tables): velocities match to <1 % and drop to ~2 % out to 1000 m (`tests/`).

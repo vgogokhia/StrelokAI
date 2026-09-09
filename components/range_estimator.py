@@ -1,5 +1,5 @@
 """
-StrelokAI - Mildot Range Estimator
+ballistics.ge - Mildot Range Estimator
 Estimates range from a known target dimension and angular size.
 Version: 1.1.0 - unit-aware (cm/in, m/yd), MOA input supported
 """

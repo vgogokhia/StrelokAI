@@ -18,8 +18,10 @@ DEFAULT_LATITUDE = 41.7151
 DEFAULT_LONGITUDE = 44.8271
 
 # App settings
-APP_NAME = "StrelokAI"
-VERSION = "0.8.0"
+APP_NAME = "ballistics.ge"
+SITE_URL = "https://ballistics.ge"
+TAGLINE = "Ballistic calculator for precision shooters — MRAD/MOA, .308, .22 LR, dope cards"
+VERSION = "0.9.0"
 
 # Unit preferences
 DEFAULT_DISTANCE_UNIT = "meters"  # meters or yards

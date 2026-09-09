@@ -1,5 +1,5 @@
 """
-StrelokAI - Ballistic Solution Component
+ballistics.ge - Ballistic Solution Component
 Renders the firing solution for the current session state.
 Version: 2.0.0 - shared cached solver, MRAD/MOA + click-value aware, unit-aware
 """

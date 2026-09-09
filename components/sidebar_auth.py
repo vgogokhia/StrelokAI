@@ -1,5 +1,5 @@
 """
-StrelokAI - Sidebar Authentication Component
+ballistics.ge - Sidebar Authentication Component
 Renders Email login/signup forms and Google sign-in button in the sidebar.
 Version: 1.3.0 - graceful when accounts/Firestore are not configured
 """
@@ -101,7 +101,7 @@ def _render_google_login():
     """Render a styled Google sign-in button that redirects to the standard OAuth flow."""
     google_config = secret_section("google")
     client_id = google_config.get("client_id", "")
-    redirect_uri = google_config.get("redirect_uri", "https://strelokai.streamlit.app")
+    redirect_uri = google_config.get("redirect_uri", "https://ballistics.ge")
     
     if client_id and redirect_uri:
         from core.google_auth import get_google_auth_url

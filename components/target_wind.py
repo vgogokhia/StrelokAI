@@ -1,5 +1,5 @@
 """
-StrelokAI - Target & Wind Component
+ballistics.ge - Target & Wind Component
 Renders target distance slider, wind speed/direction inputs, and phone compass widget.
 Version: 2.2.0 - compass declared once, recent ranges, dedup compass events
 """

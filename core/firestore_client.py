@@ -1,5 +1,5 @@
 """
-StrelokAI - Firestore Client Singleton
+ballistics.ge - Firestore Client Singleton
 Initialises a google-cloud-firestore client from Streamlit secrets.
 Version: 1.1.0 - graceful "not configured" detection
 """

@@ -9,6 +9,9 @@ from profiles import (
     save_full_profile, load_full_profile, list_full_profiles
 )
 from ballistics.bullet_library import load_all as load_bullet_library
+from ballistics.calibers import (
+    CHAMBERINGS, LIBRARY_CALIBER_TO_CHAMBERING, is_compatible, chambering_diameter,
+)
 from core.units import (
     is_imperial, range_label, velocity_label, temp_label, sight_height_label,
     input_range_from_m, input_range_to_m,
@@ -54,6 +57,7 @@ def render_sidebar_profiles():
                             "sight_height": loaded.sight_height,
                             "twist_rate": loaded.twist_rate,
                             "twist_direction": getattr(loaded, "twist_direction", "right"),
+                            "chambering": getattr(loaded, "chambering", "") or "",
                         })
                         st.session_state._last_loaded_rifle = selected_rifle
                         st.session_state.save_rifle_name = selected_rifle
@@ -69,6 +73,7 @@ def render_sidebar_profiles():
                         sight_height=st.session_state.profile["sight_height"],
                         twist_rate=st.session_state.profile["twist_rate"],
                         twist_direction=st.session_state.profile.get("twist_direction", "right"),
+                        chambering=st.session_state.profile.get("chambering", ""),
                     )
                     success, msg = save_rifle_profile(st.session_state.username, new_rifle)
                     if success:
@@ -107,6 +112,15 @@ def render_sidebar_profiles():
             horizontal=True,
             help="Right twist (most rifles) drifts bullets right; left twist drifts left."
         )
+        chamber_names = list(CHAMBERINGS.keys())
+        cur_ch = st.session_state.profile.get("chambering") or "Other"
+        chambering = st.selectbox(
+            "Chambering", chamber_names,
+            index=chamber_names.index(cur_ch) if cur_ch in chamber_names else len(chamber_names) - 1,
+            help="Used to show only ammo and bullets that fit this rifle.",
+        )
+        # Written immediately so the ammo section below filters on it this run.
+        st.session_state.profile["chambering"] = chambering
 
 
     # ------------------ AMMO PROFILES ------------------
@@ -115,6 +129,19 @@ def render_sidebar_profiles():
             from profiles import list_cartridge_profiles, load_cartridge_profile, save_cartridge_profile, CartridgeProfile
             
             saved_ammo = _firestore_call(list_cartridge_profiles, st.session_state.username, default=[])
+            rifle_ch = chambering
+            if saved_ammo and chambering_diameter(rifle_ch) is not None:
+                # Only ammo that fits the selected rifle. Needs one read per
+                # profile; lists are short.
+                fitting = []
+                for name in saved_ammo:
+                    cp = _firestore_call(load_cartridge_profile, st.session_state.username, name)
+                    if cp is None or is_compatible(rifle_ch, cp.diameter, getattr(cp, "cartridge", "")):
+                        fitting.append(name)
+                hidden = len(saved_ammo) - len(fitting)
+                saved_ammo = fitting
+                if hidden:
+                    st.caption(f"{hidden} saved ammo profile(s) hidden: they don't fit a {rifle_ch} rifle.")
             if saved_ammo:
                 st.markdown("**Load Ammo Profile**")
                 selected_ammo = st.selectbox(
@@ -143,6 +170,7 @@ def render_sidebar_profiles():
                             "mv_temp_c": getattr(loaded, "mv_temp_c", 15.0),
                             "temp_sensitivity": getattr(loaded, "temp_sensitivity", 0.1),
                             "bullet_length_in": getattr(loaded, "bullet_length_in", 1.0),
+                            "cartridge": getattr(loaded, "cartridge", "") or "",
                         })
                         st.session_state._last_loaded_ammo = selected_ammo
                         st.session_state.save_ammo_name = selected_ammo
@@ -168,6 +196,7 @@ def render_sidebar_profiles():
                         bullet_length_in=st.session_state.profile.get("bullet_length_in", 1.0),
                         mv_temp_c=st.session_state.profile.get("mv_temp_c", 15.0),
                         temp_sensitivity=st.session_state.profile.get("temp_sensitivity", 0.1),
+                        cartridge=st.session_state.profile.get("cartridge", ""),
                     )
                     success, msg = save_cartridge_profile(st.session_state.username, new_ammo)
                     if success:
@@ -181,31 +210,49 @@ def render_sidebar_profiles():
         
         st.divider()
 
-        # Bullet library preset picker (read-only; populates the fields below)
+        # Cartridge of the loaded ammo (drives rifle/ammo compatibility)
+        chamber_names = list(CHAMBERINGS.keys())
+        cur_cart = st.session_state.profile.get("cartridge") or "Other"
+        cartridge = st.selectbox(
+            "Cartridge", chamber_names,
+            index=chamber_names.index(cur_cart) if cur_cart in chamber_names else len(chamber_names) - 1,
+        )
+        rifle_ch = chambering
+        if not is_compatible(rifle_ch, st.session_state.profile.get("diameter"), cartridge):
+            st.warning(f"⚠️ This ammo ({cartridge}) doesn't fit a {rifle_ch} rifle.")
+
+        # Bullet library preset picker (read-only; populates the fields below),
+        # filtered to bullets that fit the selected rifle.
         library = load_bullet_library()
+        if chambering_diameter(rifle_ch) is not None:
+            library = [b for b in library if is_compatible(rifle_ch, b.diameter_in)]
         if library:
             preset_labels = ["-- Load Preset --"] + [b.label for b in library]
             picked = st.selectbox(
                 "📚 Bullet Library",
                 preset_labels,
                 key="bullet_preset_selector",
-                help="Load published bullet specs. You can still edit anything below and save as your own profile.",
+                help="Published bullet specs that fit the selected rifle. Edit anything below and save as your own profile.",
             )
             if picked != "-- Load Preset --":
                 if st.button("⬇ Apply Preset", width="stretch", key="apply_bullet_preset"):
                     preset = next((b for b in library if b.label == picked), None)
                     if preset is not None:
+                        use_g7 = preset.bc_g7 is not None
                         st.session_state.profile.update({
-                            "drag_model": "G7",
-                            "bc_g7": preset.bc_g7,
+                            "drag_model": "G7" if use_g7 else "G1",
+                            "bc_g7": preset.bc_g7 if use_g7 else preset.bc_g1,
                             "mass_grains": preset.mass_grains,
                             "diameter": preset.diameter_in,
                             "bullet_length_in": preset.length_in,
                             "muzzle_velocity": preset.default_mv_mps,
                             "twist_rate": preset.default_twist_in,
+                            "cartridge": LIBRARY_CALIBER_TO_CHAMBERING.get(preset.caliber, rifle_ch),
                         })
                         st.success(f"Applied: {preset.bullet}")
                         st.rerun()
+        else:
+            st.caption("No library bullets for this chambering yet — enter the specs manually.")
 
         drag_model = st.radio(
             "Drag Model",
@@ -216,14 +263,14 @@ def render_sidebar_profiles():
         
         bc_val = st.number_input(
             f"Ballistic Coefficient ({drag_model})",
-            min_value=0.100, max_value=1.500,
+            min_value=0.050, max_value=1.500,
             value=st.session_state.profile["bc_g7"],  # Reusing this key for the UI input temporarily, handled in state update below
             step=0.001,
             format="%.3f"
         )
         mass_grains = st.number_input(
             "Bullet Weight (grains)",
-            min_value=50.0, max_value=400.0,
+            min_value=15.0, max_value=800.0,
             value=st.session_state.profile["mass_grains"],
             step=1.0
         )
@@ -284,4 +331,6 @@ def render_sidebar_profiles():
         "sight_height": sight_height,
         "twist_rate": twist_rate,
         "twist_direction": twist_direction,
+        "chambering": chambering,
+        "cartridge": cartridge,
     })

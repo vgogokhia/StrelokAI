@@ -40,6 +40,7 @@ class RifleProfile:
     sight_height: float
     twist_rate: float
     twist_direction: str = "right"
+    chambering: str = ""          # e.g. ".308 Win / 7.62" (see ballistics.calibers)
     description: str = ""
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -63,6 +64,7 @@ class CartridgeProfile:
     mv_temp_c: float = 15.0
     temp_sensitivity: float = 0.1
     bullet_length_in: float = 1.0
+    cartridge: str = ""           # e.g. ".22 LR" (see ballistics.calibers)
     description: str = ""
     bc_g1: Optional[float] = None
     bc_segments: Optional[List[List[float]]] = None

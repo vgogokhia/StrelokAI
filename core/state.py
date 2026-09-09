@@ -22,11 +22,15 @@ def init_session_state():
             "sight_height": 40.0,
             "twist_rate": 11.25,
             "twist_direction": "right",
+            "chambering": ".308 Win / 7.62",
+            "cartridge": ".308 Win / 7.62",
         }
     # Forward-compatible top-ups for older session profiles
     for k, default in (
         ("bullet_length_in", 1.240),
         ("twist_direction", "right"),
+        ("chambering", ""),
+        ("cartridge", ""),
     ):
         if k not in st.session_state.profile:
             st.session_state.profile[k] = default

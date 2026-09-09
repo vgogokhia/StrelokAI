@@ -64,11 +64,8 @@ def render_solution_section():
     </div>
     """, unsafe_allow_html=True)
 
-    if target_point.mach < 1.2:
-        st.warning(
-            f"⚠️ Bullet is transonic/subsonic at target (Mach {target_point.mach:.2f}). "
-            "Expect reduced accuracy of any calculator here."
-        )
+    _render_transonic_notice(solution, inputs, target_point)
+
     if solution.stability_factor and solution.stability_factor < 1.3:
         st.warning(
             f"⚠️ Marginal gyroscopic stability (SG {solution.stability_factor:.2f}). "
@@ -95,6 +92,49 @@ def render_solution_section():
             f"Coriolis H {solution.coriolis_horizontal_m*100:+.1f} cm / "
             f"V {solution.coriolis_vertical_m*100:+.1f} cm  ·  "
             f"Wind relative {inputs.wind_deg_relative:.0f}°"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Transonic / subsonic notice
+# ---------------------------------------------------------------------------
+
+def _first_range_below(solution, mach: float):
+    """Range (m) where the bullet first drops below the given Mach, or None."""
+    for pt in solution.trajectory:
+        if pt.mach < mach:
+            return pt.range_m
+    return None
+
+
+def _render_transonic_notice(solution, inputs, target_point):
+    """Two-stage notice. Silent for loads that leave the muzzle subsonic."""
+    traj = solution.trajectory
+    if not traj:
+        return
+    muzzle_mach = traj[0].mach
+    if muzzle_mach < 1.0:
+        # Subsonic load (.22 LR, .300 BLK subs...): the transonic crossing
+        # never happens, so there is nothing to warn about.
+        return
+    m = target_point.mach
+    if m >= 1.2:
+        return
+    r_trans = _first_range_below(solution, 1.2)
+    r_sub = _first_range_below(solution, 1.0)
+    trans_txt = f"transonic from ~{fmt_range(r_trans)}" if r_trans else ""
+    sub_txt = f"subsonic from ~{fmt_range(r_sub)}" if r_sub else ""
+    where = " · ".join(t for t in (trans_txt, sub_txt) if t)
+    if m >= 1.0:
+        st.info(
+            f"ℹ️ Entering the transonic zone at target (Mach {m:.2f}). "
+            f"The solution is still valid; confirm long-range dope on steel or with True MV. {where}"
+        )
+    else:
+        st.warning(
+            f"⚠️ Bullet is subsonic at target (Mach {m:.2f}) after passing through the "
+            f"transonic zone. Drag models are least reliable here; expect drift from "
+            f"the predicted drop. {where}"
         )
 
 

@@ -23,7 +23,7 @@ class BulletPreset:
     mass_grains: float
     diameter_in: float
     length_in: float
-    bc_g7: float
+    bc_g7: Optional[float]
     bc_g1: Optional[float]
     default_mv_mps: float
     default_twist_in: float
@@ -55,7 +55,7 @@ def load_all() -> List[BulletPreset]:
                 mass_grains=float(entry["mass_grains"]),
                 diameter_in=float(entry["diameter_in"]),
                 length_in=float(entry["length_in"]),
-                bc_g7=float(entry["bc_g7"]),
+                bc_g7=float(entry["bc_g7"]) if entry.get("bc_g7") is not None else None,
                 bc_g1=float(entry["bc_g1"]) if entry.get("bc_g1") is not None else None,
                 default_mv_mps=float(entry["default_mv_mps"]),
                 default_twist_in=float(entry["default_twist_in"]),
@@ -63,6 +63,7 @@ def load_all() -> List[BulletPreset]:
         except (KeyError, TypeError, ValueError):
             continue  # skip malformed entries, keep the rest usable
 
+    bullets = [b for b in bullets if b.bc_g7 is not None or b.bc_g1 is not None]
     bullets.sort(key=lambda b: (b.caliber, b.mass_grains))
     return bullets
 

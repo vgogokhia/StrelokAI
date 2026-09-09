@@ -118,6 +118,8 @@ def render_atmosphere_section():
         elif st.session_state.get("weather_status"):
             st.success(st.session_state.weather_status)
 
+        _render_weather_photo()
+
         imp = is_imperial()
         t_label, p_label, a_label = temp_label(), pressure_label(), alt_label()
 
@@ -156,3 +158,69 @@ def render_atmosphere_section():
             st.session_state.altitude_m = altitude
 
         return temp_c, pressure, humidity, altitude
+
+
+# ---------------------------------------------------------------------------
+# Kestrel / weather-meter photo -> fields (Gemini)
+# ---------------------------------------------------------------------------
+
+def _render_weather_photo():
+    with st.expander("📷 Read a Kestrel / weather meter photo", expanded=False):
+        st.caption(
+            "Photograph the meter's screen (Kestrel, WeatherFlow, station). Temperature, "
+            "station pressure, humidity and wind are read and filled in. Sign in to use."
+        )
+        if not st.session_state.get("logged_in"):
+            return
+        from components.reticle import _check_rate_limit, _record_upload, _resolve_gemini_key
+        username = st.session_state.get("username") or "anonymous"
+        allowed, remaining, wait_min = _check_rate_limit(username)
+        if not allowed:
+            st.caption(f"⏱ Rate limit reached. Try again in ~{wait_min} min.")
+            return
+        up = st.file_uploader("Meter photo", type=["jpg", "jpeg", "png", "webp"], key="weather_photo")
+        if not up:
+            return
+        key = _resolve_gemini_key()
+        if not key:
+            st.error("Photo reading is not configured on this server.")
+            return
+        if st.session_state.get("_weather_photo_done") == up.file_id:
+            reading = st.session_state.get("_weather_photo_reading")
+        else:
+            _record_upload(username)
+            try:
+                from ai.weather_ocr import read_weather_photo
+                with st.spinner("Reading the display…"):
+                    reading = read_weather_photo(up.getvalue(), key)
+            except Exception as exc:
+                st.error(f"Could not read the photo: {exc}")
+                return
+            st.session_state._weather_photo_done = up.file_id
+            st.session_state._weather_photo_reading = reading
+        vals = reading.as_dict() if reading else {}
+        if not vals:
+            st.warning("No readable values found. Try a sharper, straight-on photo of the screen.")
+            return
+        shown = {
+            "temperature_c": lambda v: fmt_temperature(v),
+            "pressure_mbar": lambda v: fmt_pressure(v) + " (station)",
+            "humidity_pct": lambda v: f"{v:.0f} %",
+            "wind_speed_mps": lambda v: fmt_velocity(v),
+            "wind_direction_deg": lambda v: f"from {v:.0f}°",
+            "density_altitude_m": lambda v: f"DA {v*3.28084:,.0f} ft",
+        }
+        st.write(" · ".join(f"**{shown[k](v)}**" for k, v in vals.items() if k in shown))
+        if "pressure_mbar" not in vals:
+            st.caption("Only barometric (sea-level) pressure was visible; station pressure was not applied. "
+                       "On a Kestrel use the STATION / ABS PRES screen.")
+        if st.button("✔ Apply to atmosphere", width="stretch", key="weather_photo_apply"):
+            ss = st.session_state
+            if "temperature_c" in vals: ss.temp_c = vals["temperature_c"]
+            if "pressure_mbar" in vals: ss.pressure = vals["pressure_mbar"]
+            if "humidity_pct" in vals: ss.humidity = vals["humidity_pct"]
+            if "wind_speed_mps" in vals: ss.wind_speed = vals["wind_speed_mps"]
+            if "wind_direction_deg" in vals: ss.wind_dir_deg = vals["wind_direction_deg"]
+            ss.weather_status = f"✅ From meter photo · synced {datetime.now():%H:%M}"
+            ss.weather_error = None
+            st.rerun()

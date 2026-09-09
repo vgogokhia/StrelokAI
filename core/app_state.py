@@ -40,7 +40,7 @@ _STATE_KEYS = (
     "location_lat", "location_lon",
     "shot_angle_deg", "cant_angle_deg",
     "units", "angular_unit", "click_value",
-    "reticle_name", "turret_per_rev",
+    "reticle_name", "turret_per_rev", "reticle_fp", "reticle_cal_mag", "reticle_cur_mag", "reticle_target_cm",
     "_last_loaded_rifle", "_last_loaded_ammo",
 )
 

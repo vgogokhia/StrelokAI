@@ -46,92 +46,6 @@ def _record_upload(username: str) -> None:
     _SCOPE_UPLOAD_LOG.setdefault(username, []).append(time.time())
 
 
-# Reticle view spans ±10 mrad square. Bullet impact dot is placed in this frame.
-_VIEW_MRAD = 10.0
-_SVG_SIZE = 480  # pixels
-
-
-def _mrad_to_px(mrad: float) -> float:
-    return (mrad / _VIEW_MRAD) * (_SVG_SIZE / 2)
-
-
-def _mildot_svg(x_mrad: float, y_mrad: float) -> str:
-    """Standard MIL-Dot reticle: dots at every 1 mrad on main crosshair."""
-    cx = _SVG_SIZE / 2
-    cy = _SVG_SIZE / 2
-    px = _mrad_to_px(x_mrad) + cx
-    py = _mrad_to_px(y_mrad) + cy
-
-    parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{_SVG_SIZE}" height="{_SVG_SIZE}" '
-        f'viewBox="0 0 {_SVG_SIZE} {_SVG_SIZE}" style="background:#0a0a0a;">',
-        f'<circle cx="{cx}" cy="{cy}" r="{_SVG_SIZE/2 - 2}" fill="none" stroke="#1a1a1a" stroke-width="2"/>',
-        # main crosshair
-        f'<line x1="{cx - _SVG_SIZE/2 + 20}" y1="{cy}" x2="{cx + _SVG_SIZE/2 - 20}" y2="{cy}" stroke="#8a8" stroke-width="1"/>',
-        f'<line x1="{cx}" y1="{cy - _SVG_SIZE/2 + 20}" x2="{cx}" y2="{cy + _SVG_SIZE/2 - 20}" stroke="#8a8" stroke-width="1"/>',
-    ]
-    # mil dots and labels
-    for m in range(-9, 10):
-        if m == 0:
-            continue
-        dx = _mrad_to_px(m) + cx
-        dy = _mrad_to_px(m) + cy
-        parts.append(f'<circle cx="{dx}" cy="{cy}" r="2.5" fill="#8a8"/>')
-        parts.append(f'<circle cx="{cx}" cy="{dy}" r="2.5" fill="#8a8"/>')
-        if m % 5 == 0:
-            parts.append(
-                f'<text x="{dx + 4}" y="{cy - 6}" fill="#6a6" font-size="10" font-family="monospace">{m}</text>'
-            )
-            parts.append(
-                f'<text x="{cx + 6}" y="{dy + 3}" fill="#6a6" font-size="10" font-family="monospace">{-m}</text>'
-            )
-
-    # holdover aim point
-    parts.append(f'<circle cx="{px}" cy="{py}" r="6" fill="#ff3030" stroke="#fff" stroke-width="1.5"/>')
-    parts.append(f'<line x1="{px - 10}" y1="{py}" x2="{px + 10}" y2="{py}" stroke="#ff3030" stroke-width="1"/>')
-    parts.append(f'<line x1="{px}" y1="{py - 10}" x2="{px}" y2="{py + 10}" stroke="#ff3030" stroke-width="1"/>')
-    parts.append('</svg>')
-    return ''.join(parts)
-
-
-def _tmr_svg(x_mrad: float, y_mrad: float) -> str:
-    """Simplified TMR-style with 0.5 mrad hashes."""
-    cx = _SVG_SIZE / 2
-    cy = _SVG_SIZE / 2
-    px = _mrad_to_px(x_mrad) + cx
-    py = _mrad_to_px(y_mrad) + cy
-    parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{_SVG_SIZE}" height="{_SVG_SIZE}" '
-        f'viewBox="0 0 {_SVG_SIZE} {_SVG_SIZE}" style="background:#0a0a0a;">',
-        f'<circle cx="{cx}" cy="{cy}" r="{_SVG_SIZE/2 - 2}" fill="none" stroke="#1a1a1a" stroke-width="2"/>',
-        f'<line x1="{cx - _SVG_SIZE/2 + 20}" y1="{cy}" x2="{cx + _SVG_SIZE/2 - 20}" y2="{cy}" stroke="#8a8" stroke-width="1"/>',
-        f'<line x1="{cx}" y1="{cy - _SVG_SIZE/2 + 20}" x2="{cx}" y2="{cy + _SVG_SIZE/2 - 20}" stroke="#8a8" stroke-width="1"/>',
-    ]
-    for half in range(-18, 19):
-        if half == 0:
-            continue
-        m = half * 0.5
-        dx = _mrad_to_px(m) + cx
-        dy = _mrad_to_px(m) + cy
-        length = 8 if half % 2 == 0 else 4
-        parts.append(f'<line x1="{dx}" y1="{cy - length}" x2="{dx}" y2="{cy + length}" stroke="#8a8" stroke-width="1"/>')
-        parts.append(f'<line x1="{cx - length}" y1="{dy}" x2="{cx + length}" y2="{dy}" stroke="#8a8" stroke-width="1"/>')
-        if half % 4 == 0:
-            parts.append(f'<text x="{dx + 4}" y="{cy - 10}" fill="#6a6" font-size="9" font-family="monospace">{int(m)}</text>')
-
-    parts.append(f'<circle cx="{px}" cy="{py}" r="6" fill="#ff3030" stroke="#fff" stroke-width="1.5"/>')
-    parts.append(f'<line x1="{px - 10}" y1="{py}" x2="{px + 10}" y2="{py}" stroke="#ff3030" stroke-width="1"/>')
-    parts.append(f'<line x1="{px}" y1="{py - 10}" x2="{px}" y2="{py + 10}" stroke="#ff3030" stroke-width="1"/>')
-    parts.append('</svg>')
-    return ''.join(parts)
-
-
-_RETICLES = {
-    "MIL-Dot": _mildot_svg,
-    "TMR": _tmr_svg,
-}
-
-
 def _render_scope_recognition():
     """Photo → Gemini → scope info. Gated on login + 10/hour rate limit."""
     with st.expander("📷 Identify scope from photo", expanded=False):
@@ -191,17 +105,36 @@ def _render_scope_recognition():
 
 
 def render_reticle():
+    from components.reticle_lib import RETICLES, BY_NAME, render_svg, hold_in_reticle_units
     st.markdown("### 🔭 Reticle Holdover")
     st.caption("Red dot = the reticle mark to hold on the target at the current range (holdover / wind hold).")
 
     _render_scope_recognition()
 
-    st.session_state.setdefault(
-        "reticle_selector", st.session_state.get("reticle_name", "MIL-Dot"))
-    if st.session_state.reticle_selector not in _RETICLES:
-        st.session_state.reticle_selector = "MIL-Dot"
-    selected = st.selectbox("Reticle", list(_RETICLES.keys()), key="reticle_selector")
+    names = [r.name for r in RETICLES]
+    st.session_state.setdefault("reticle_selector", st.session_state.get("reticle_name", names[0]))
+    if st.session_state.reticle_selector not in BY_NAME:
+        st.session_state.reticle_selector = names[0]
+    c1, c2 = st.columns([3, 2])
+    with c1:
+        selected = st.selectbox("Reticle", names, key="reticle_selector")
+    spec = BY_NAME[selected]
     st.session_state.reticle_name = selected
+    with c2:
+        fp = st.radio("Focal plane", ["FFP", "SFP"], horizontal=True,
+                      index=1 if st.session_state.get("reticle_fp") == "SFP" else 0, key="reticle_fp_radio",
+                      help="FFP: marks are true at every zoom. SFP: marks are true only at one magnification.")
+    st.session_state.reticle_fp = fp
+    sfp_scale = 1.0
+    if fp == "SFP":
+        m1, m2 = st.columns(2)
+        cal = m1.number_input("Reticle true at (×)", 1.0, 50.0, float(st.session_state.get("reticle_cal_mag", 10.0)), 0.5, key="reticle_cal_mag_in",
+                              help="Usually max magnification (check the manual).")
+        cur = m2.number_input("Current magnification (×)", 1.0, 50.0, float(st.session_state.get("reticle_cur_mag", cal)), 0.5, key="reticle_cur_mag_in")
+        st.session_state.reticle_cal_mag, st.session_state.reticle_cur_mag = cal, cur
+        sfp_scale = cur / cal if cal else 1.0
+    if spec.note:
+        st.caption(spec.note + ("" if spec.unit == "MRAD" else "  (MOA reticle)"))
 
     try:
         inputs, solution = solve_current()
@@ -209,27 +142,38 @@ def render_reticle():
         st.error(f"Solver error: {exc}")
         return
     target_range = inputs.target_range
-
     pt = solution.at_range(target_range)
     if pt is None:
         st.warning("No trajectory point at that range.")
         return
 
-    # The red dot is the reticle mark you place ON the target. The bullet
-    # impacts low/left of the crosshair, so the mark to use is the one the
-    # same distance below/left of centre (SVG y grows downward, hence -drop).
-    hold_x = pt.windage_mrad
-    hold_y = -pt.drop_mrad
+    # The red dot is the reticle mark you place ON the target: the bullet
+    # impacts low/left, so the mark to use is the same distance below/left.
+    hold_x = hold_in_reticle_units(pt.windage_mrad, spec, sfp_scale)
+    hold_y = hold_in_reticle_units(-pt.drop_mrad, spec, sfp_scale)
 
-    svg = _RETICLES[selected](hold_x, hold_y)
-    # st.html strips <svg> (HTML-only sanitizer profile), so render the SVG
-    # as an image: st.image accepts an SVG string and scales it to the column.
+    # Optional: draw the target size at range around the hold point
+    tgt = st.session_state.get("reticle_target_cm", 0.0)
+    ring = None
+    if tgt and target_range:
+        ring_mrad = (tgt / 100.0) / target_range * 1000.0
+        ring = hold_in_reticle_units(ring_mrad, spec, sfp_scale)
+
+    svg = render_svg(spec, hold_x, hold_y, show_target_ring=ring)
     _, mid, _ = st.columns([1, 6, 1])
     with mid:
         st.image(svg, width="stretch")
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Range", fmt_range(target_range))
-    c2.metric("Elev Hold", fmt_angular(pt.drop_mrad, signed=True))
-    c3.metric("Wind Hold", fmt_angular(pt.windage_mrad, signed=True))
-    st.caption("Reticle grid is drawn in MRAD; holds above are in your selected angular unit.")
+    c2.metric("Elev hold", f"{hold_y:+.2f} {spec.unit}" + (" (reticle)" if sfp_scale != 1.0 else ""))
+    c3.metric("Wind hold", f"{hold_x:+.2f} {spec.unit}" + (" (reticle)" if sfp_scale != 1.0 else ""))
+    if sfp_scale != 1.0:
+        st.caption(f"SFP at {st.session_state.reticle_cur_mag:g}× of {st.session_state.reticle_cal_mag:g}×: "
+                   f"each mark subtends {1/sfp_scale:.2f} {spec.unit}; true hold is "
+                   f"{fmt_angular(-pt.drop_mrad)} up / {fmt_angular(pt.windage_mrad, signed=True)}.")
+    if abs(hold_y) > spec.view or abs(hold_x) > spec.view:
+        st.warning("Hold is outside the reticle — dial some elevation on the turret and hold the rest.")
+    st.number_input("Show target size on reticle (cm, 0 = off)", 0.0, 500.0,
+                    float(st.session_state.get("reticle_target_cm", 0.0)), 5.0, key="reticle_target_cm_in",
+                    on_change=lambda: st.session_state.__setitem__("reticle_target_cm", st.session_state.reticle_target_cm_in))

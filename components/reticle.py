@@ -196,12 +196,12 @@ def render_reticle():
 
     _render_scope_recognition()
 
-    selected = st.selectbox(
-        "Reticle",
-        list(_RETICLES.keys()),
-        index=0,
-        key="reticle_selector",
-    )
+    st.session_state.setdefault(
+        "reticle_selector", st.session_state.get("reticle_name", "MIL-Dot"))
+    if st.session_state.reticle_selector not in _RETICLES:
+        st.session_state.reticle_selector = "MIL-Dot"
+    selected = st.selectbox("Reticle", list(_RETICLES.keys()), key="reticle_selector")
+    st.session_state.reticle_name = selected
 
     try:
         inputs, solution = solve_current()

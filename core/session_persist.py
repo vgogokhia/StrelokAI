@@ -89,14 +89,39 @@ def _cookie_manager():
     return st.session_state._cookie_manager_instance
 
 
+def read_cookies() -> dict:
+    """Return the browser's cookies as reported by the component.
+
+    ``CookieManager`` only reads cookies in its constructor, and on the very
+    first script run the component has not mounted yet, so that read is
+    empty. Re-query once per script run (a component call with a fixed key
+    must not be repeated within the same run, hence the run guard) so the
+    value that arrives on the next rerun is actually seen.
+    """
+    cm = _cookie_manager()
+    if cm is None:
+        return {}
+    run_no = st.session_state.get("_script_run_no", 0)
+    if st.session_state.get("_cookies_read_run") != run_no:
+        st.session_state._cookies_read_run = run_no
+        try:
+            cookies = cm.get_all(key="strelokai_cookie_getall")
+        except Exception:
+            cookies = {}
+        st.session_state._cookies_cache = dict(cookies or {})
+    return st.session_state.get("_cookies_cache", {})
+
+
+def begin_script_run() -> None:
+    """Call once at the top of app.py so per-run caches can be keyed."""
+    st.session_state._script_run_no = st.session_state.get("_script_run_no", 0) + 1
+
+
 def restore_session_from_cookie() -> None:
     """If the user has a valid persistent cookie, mark them logged in."""
     if st.session_state.get("logged_in"):
         return
-    cm = _cookie_manager()
-    if cm is None:
-        return
-    token = cm.get(_COOKIE_NAME)
+    token = read_cookies().get(_COOKIE_NAME)
     if not token:
         return
     username = _decode(token)

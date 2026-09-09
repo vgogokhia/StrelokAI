@@ -36,8 +36,13 @@ init_session_state()
 
 # Restore logged-in user from persistent cookie (survives idle websocket
 # disconnects that would otherwise log the user out).
-from core.session_persist import restore_session_from_cookie
+from core.session_persist import restore_session_from_cookie, begin_script_run
+begin_script_run()
 restore_session_from_cookie()
+
+# Bring back the last used rifle/ammo/range/wind/atmosphere after a refresh.
+from core.app_state import restore_app_state, save_app_state, forget_app_state
+restore_app_state()
 
 process_query_params()
 from core.google_auth import handle_google_oauth
@@ -54,32 +59,40 @@ apply_theme(st.session_state.theme)
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
 
+    # Keyed widgets are seeded through session_state (no index=/value=), so
+    # restoring a remembered state never triggers Streamlit's
+    # "default value AND session state" warning.
     c_units, c_ang = st.columns(2)
     with c_units:
-        units_index = 1 if st.session_state.get("units", "metric") == "imperial" else 0
-        units_choice = st.radio(
-            "Units", ["Metric", "Imperial"], index=units_index, horizontal=True, key="units_radio",
-        )
+        st.session_state.setdefault(
+            "units_radio", "Imperial" if st.session_state.get("units") == "imperial" else "Metric")
+        units_choice = st.radio("Units", ["Metric", "Imperial"], horizontal=True, key="units_radio")
         st.session_state.units = "imperial" if units_choice == "Imperial" else "metric"
     with c_ang:
-        ang_index = 1 if st.session_state.get("angular_unit", "MRAD") == "MOA" else 0
+        st.session_state.setdefault("angular_radio", st.session_state.get("angular_unit", "MRAD"))
         st.session_state.angular_unit = st.radio(
-            "Angular", ["MRAD", "MOA"], index=ang_index, horizontal=True, key="angular_radio",
-        )
+            "Angular", ["MRAD", "MOA"], horizontal=True, key="angular_radio")
 
     click_labels = list(CLICK_OPTIONS.keys())
-    # Keep the click list in the same family as the angular unit by default.
-    cur_click = st.session_state.get("click_value", "0.1 MRAD")
+    cur_click = st.session_state.get("click_value_select") or st.session_state.get("click_value", "0.1 MRAD")
+    # Keep the click list in the same family as the angular unit.
     if st.session_state.angular_unit not in cur_click:
         cur_click = "0.1 MRAD" if st.session_state.angular_unit == "MRAD" else "1/4 MOA"
+    if st.session_state.get("click_value_select") != cur_click:
+        st.session_state.click_value_select = cur_click
     st.session_state.click_value = st.selectbox(
-        "Scope click value", click_labels, index=click_labels.index(cur_click), key="click_value_select",
-    )
+        "Scope click value", click_labels, key="click_value_select")
 
     st.divider()
     render_sidebar_auth()
     st.divider()
     render_sidebar_profiles()
+    st.divider()
+    if st.button("↺ Reset everything to defaults", width="stretch",
+                 help="Clears the remembered rifle, ammo, range, wind and atmosphere."):
+        forget_app_state()
+        init_session_state()
+        st.rerun()
 
 # ---------------------------------------------------------------------------
 # Main tabbed interface
@@ -109,4 +122,7 @@ with tab_range:
     render_range_estimator()
 
 st.divider()
-st.caption(f"{APP_NAME} v{VERSION} | Made with ❤️ for precision shooters")
+st.caption(f"{APP_NAME} v{VERSION} | Made with ❤️ for precision shooters · your inputs are remembered on this device")
+
+# Persist the working state (cookie + Firestore when logged in).
+save_app_state()

@@ -23,7 +23,7 @@ def _turret_svg(val: float, per_rev: float, unit: str) -> str:
 
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{_SIZE}" height="{_SIZE}" '
-        f'viewBox="0 0 {_SIZE} {_SIZE}" style="background:#0a0a0a;border-radius:50%;">',
+        f'viewBox="0 0 {_SIZE} {_SIZE}" style="background:#0a0a0a;">',
         f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="#101010" stroke="#3a3a3a" stroke-width="2"/>',
     ]
     major = int(per_rev)
@@ -74,7 +74,9 @@ def render_turret():
         return
 
     val = abs(to_angular(pt.drop_mrad))
-    st.html(f'<div style="width:{_SIZE}px;max-width:100%;margin:0 auto;">{_turret_svg(val, per_rev, unit)}</div>')
+    _, mid, _ = st.columns([1, 3, 1])
+    with mid:
+        st.image(_turret_svg(val, per_rev, unit), width="stretch")
     full_turns = int(val // per_rev)
     remainder = val % per_rev
     direction = "UP" if pt.drop_mrad < 0 else "DOWN"

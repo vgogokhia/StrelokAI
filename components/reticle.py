@@ -63,9 +63,8 @@ def _mildot_svg(x_mrad: float, y_mrad: float) -> str:
     py = _mrad_to_px(y_mrad) + cy
 
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" '
-        f'viewBox="0 0 {_SVG_SIZE} {_SVG_SIZE}" preserveAspectRatio="xMidYMid meet" '
-        f'style="background:#0a0a0a;display:block;">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{_SVG_SIZE}" height="{_SVG_SIZE}" '
+        f'viewBox="0 0 {_SVG_SIZE} {_SVG_SIZE}" style="background:#0a0a0a;">',
         f'<circle cx="{cx}" cy="{cy}" r="{_SVG_SIZE/2 - 2}" fill="none" stroke="#1a1a1a" stroke-width="2"/>',
         # main crosshair
         f'<line x1="{cx - _SVG_SIZE/2 + 20}" y1="{cy}" x2="{cx + _SVG_SIZE/2 - 20}" y2="{cy}" stroke="#8a8" stroke-width="1"/>',
@@ -102,9 +101,8 @@ def _tmr_svg(x_mrad: float, y_mrad: float) -> str:
     px = _mrad_to_px(x_mrad) + cx
     py = _mrad_to_px(y_mrad) + cy
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" '
-        f'viewBox="0 0 {_SVG_SIZE} {_SVG_SIZE}" preserveAspectRatio="xMidYMid meet" '
-        f'style="background:#0a0a0a;display:block;">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{_SVG_SIZE}" height="{_SVG_SIZE}" '
+        f'viewBox="0 0 {_SVG_SIZE} {_SVG_SIZE}" style="background:#0a0a0a;">',
         f'<circle cx="{cx}" cy="{cy}" r="{_SVG_SIZE/2 - 2}" fill="none" stroke="#1a1a1a" stroke-width="2"/>',
         f'<line x1="{cx - _SVG_SIZE/2 + 20}" y1="{cy}" x2="{cx + _SVG_SIZE/2 - 20}" y2="{cy}" stroke="#8a8" stroke-width="1"/>',
         f'<line x1="{cx}" y1="{cy - _SVG_SIZE/2 + 20}" x2="{cx}" y2="{cy + _SVG_SIZE/2 - 20}" stroke="#8a8" stroke-width="1"/>',
@@ -224,13 +222,11 @@ def render_reticle():
     hold_y = -pt.drop_mrad
 
     svg = _RETICLES[selected](hold_x, hold_y)
-    # Responsive wrapper: square that fills available width up to _SVG_SIZE,
-    # so it never gets clipped on narrow mobile viewports.
-    wrapper = (
-        f'<div style="width:100%;max-width:{_SVG_SIZE}px;aspect-ratio:1/1;'
-        f'margin:0 auto;">{svg}</div>'
-    )
-    st.html(wrapper)
+    # st.html strips <svg> (HTML-only sanitizer profile), so render the SVG
+    # as an image: st.image accepts an SVG string and scales it to the column.
+    _, mid, _ = st.columns([1, 6, 1])
+    with mid:
+        st.image(svg, width="stretch")
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Range", fmt_range(target_range))

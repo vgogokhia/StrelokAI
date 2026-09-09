@@ -128,26 +128,34 @@ def render_target_section(col):
             chip_values_display = _QUICK_RANGES_M
             chip_values_m = _QUICK_RANGES_M
 
-        current_disp = disp
-        chip_cols = st.columns(len(chip_values_display) + 1, gap="small")
-        for i, (r_m, label) in enumerate(zip(chip_values_m, chip_values_display)):
-            active = (current_disp == label)
-            if chip_cols[i].button(
-                f"{label}",
-                key=f"qr_{label}_{unit}",
-                width="stretch",
-                type="primary" if active else "secondary",
-                on_click=_sync_quick,
-                args=(r_m,),
-            ):
-                pass
-        with chip_cols[-1]:
+        # Segmented control stays on one row on phones (columns of buttons
+        # would stack vertically). Seed the widget key from the current range.
+        seg_key = f"qr_seg_{unit}"
+        active = disp if disp in chip_values_display else None
+        if st.session_state.get(seg_key) != active:
+            st.session_state[seg_key] = active
+        seg_col, gear_col = st.columns([5, 1], gap="small")
+        with seg_col:
+            st.segmented_control(
+                "Quick range", chip_values_display, key=seg_key,
+                on_change=_on_quick_seg_change,
+                args=(seg_key, chip_values_m, chip_values_display),
+                label_visibility="collapsed",
+            )
+        with gear_col:
             try:
                 with st.popover("⚙", width="stretch"):
                     _render_angle_cant_inputs()
             except Exception:
                 with st.expander("⚙ Angle/Cant", expanded=False):
                     _render_angle_cant_inputs()
+
+
+def _on_quick_seg_change(seg_key, chips_m, chips_disp):
+    v = st.session_state.get(seg_key)
+    if v is None:  # user tapped the active chip to deselect it — keep the range
+        return
+    _sync_quick(chips_m[chips_disp.index(v)])
 
 
 def _render_angle_cant_inputs():

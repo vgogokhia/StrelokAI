@@ -128,8 +128,9 @@ This keeps each AI interaction under ~200 lines instead of 700+, saving signific
    `.streamlit/secrets.toml` on every start. Nothing else is required; `PORT` is set by Railway.
 3. **Settings → Networking → Custom Domain** → `ballistics.ge` (and `www.ballistics.ge`).
    Railway shows a CNAME target like `xxxx.up.railway.app`.
-4. Cloudflare DNS for `ballistics.ge`:
+4. The container serves the PWA (`web/`) at `/` and this Streamlit app at `/old/` via Caddy.
+5. Cloudflare DNS for `ballistics.ge`:
    - `CNAME  @    xxxx.up.railway.app`  (Proxied)
    - `CNAME  www  xxxx.up.railway.app`  (Proxied)
    - SSL/TLS mode: **Full**. Websockets are on by default on Cloudflare.
-5. Health check is `/_stcore/health`.
+6. Health check is `/` (PWA); Streamlit health at `/old/_stcore/health`.

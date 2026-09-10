@@ -12,13 +12,10 @@ npm run build      # dist/  (static; deploy anywhere)
 npm run sync-data  # refresh src/data/bullets.json from ../data/bullet_library.json
 ```
 
-## Deploy (Cloudflare Pages, free)
-1. Cloudflare → Workers & Pages → Create → Pages → Connect to Git → `vgogokhia/StrelokAI`.
-2. Build settings: **Root directory** `web`, **Build command** `npm ci && npm run build`,
-   **Build output** `dist`, branch `main`. Environment variable `NODE_VERSION=22`.
-3. Custom domain: `app.ballistics.ge` first (CNAME to the pages.dev host, Cloudflare adds it
-   automatically). When it replaces the Streamlit app, move `ballistics.ge` here and put
-   the Streamlit app on `old.ballistics.ge`.
+## Deploy
+Built inside the main `Dockerfile` (stage 1) and served by Caddy on Railway together with
+the legacy Streamlit app: `ballistics.ge/` = PWA, `ballistics.ge/old/` = Streamlit.
+No extra service needed — push to `main` and Railway rebuilds.
 
 State (profiles, conditions, settings) lives in `localStorage`; nothing is sent to a server.
 Weather uses Open-Meteo directly from the browser. `src/lib/license.ts` holds the license

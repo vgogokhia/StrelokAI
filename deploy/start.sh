@@ -12,9 +12,10 @@ if [ -n "$STREAMLIT_SECRETS_TOML" ]; then
 else
   echo "secrets: STREAMLIT_SECRETS_TOML is not set - running without secrets"
 fi
-exec streamlit run app.py \
-  --server.port "${PORT:-8501}" \
-  --server.address 0.0.0.0 \
-  --server.headless true \
-  --server.enableCORS false \
-  --server.enableXsrfProtection true
+
+# Streamlit on an internal port under /old; Caddy fronts everything on $PORT.
+streamlit run app.py \
+  --server.port 8501 --server.address 127.0.0.1 --server.baseUrlPath old \
+  --server.headless true --server.enableCORS false --server.enableXsrfProtection true &
+
+exec caddy run --config "$APP_DIR/deploy/Caddyfile" --adapter caddyfile

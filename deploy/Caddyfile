@@ -1,0 +1,15 @@
+:{$PORT}
+
+encode gzip
+
+# Legacy Streamlit app (websocket-aware reverse proxy)
+handle /old* {
+	reverse_proxy 127.0.0.1:8501
+}
+
+# PWA (static build) — SPA fallback to index.html
+handle {
+	root * /app/web/dist
+	try_files {path} /index.html
+	file_server
+}

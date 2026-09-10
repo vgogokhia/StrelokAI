@@ -1,0 +1,15 @@
+{
+  "name": "ballistics-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ballistics.ge — TypeScript ballistic solver (port of the Python engine)",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}

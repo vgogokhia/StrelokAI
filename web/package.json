@@ -1,15 +1,24 @@
 {
-  "name": "ballistics-core",
+  "name": "ballistics-ge",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ballistics.ge — TypeScript ballistic solver (port of the Python engine)",
+  "description": "ballistics.ge — offline-capable ballistic calculator (PWA)",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "sync-data": "cp ../data/bullet_library.json src/data/bullets.json"
   },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "svelte": "^5.57.0",
+    "svelte-check": "^4.0.0",
     "typescript": "^5.5.0",
-    "vitest": "^2.1.0"
+    "vite": "^8.2.2",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^5.0.0"
   }
 }

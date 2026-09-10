@@ -2,7 +2,7 @@
  * Dope-card builder (port of ballistics/dope_card.py): one long solve,
  * sampled at the requested ranges.
  */
-import { CalcInputs, atRange, calculateSolution, dropMrad, windageMrad, MRAD_TO_MOA } from "./solver";
+import { atRange, calculateSolution, dropMrad, windageMrad, MRAD_TO_MOA, type CalcInputs } from "./solver";
 
 export interface DopeRow {
   rangeM: number;

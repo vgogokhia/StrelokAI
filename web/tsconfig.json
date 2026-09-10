@@ -8,7 +8,9 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["vitest/globals"]
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "types": ["vitest/globals", "vite/client", "vite-plugin-pwa/client"]
   },
   "include": ["src", "tests"]
 }

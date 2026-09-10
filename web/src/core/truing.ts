@@ -2,7 +2,7 @@
  * MV and BC truing (port of ballistics/truing.py): secant search that
  * makes the predicted drop match an observed come-up.
  */
-import { CalcInputs, atRange, calculateSolution, dropMrad } from "./solver";
+import { atRange, calculateSolution, dropMrad, type CalcInputs } from "./solver";
 
 export interface TruingResult {
   value: number; // trued MV (m/s) or BC

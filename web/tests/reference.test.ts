@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import ref from "./fixtures/python_reference.json";
 import {
-  CalcInputs,
+  type CalcInputs,
   atRange,
   calculateSolution,
   dropMrad,

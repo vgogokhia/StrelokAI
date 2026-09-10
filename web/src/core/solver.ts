@@ -13,8 +13,8 @@
  *
  * Every number here must match the Python engine — see tests/reference.
  */
-import { AtmosphericConditions, airDensity, speedOfSound } from "./atmosphere";
-import { DragTable, DragCurve, DragModel, curveToDragTable, dragCoefficient, tableFor } from "./drag";
+import { airDensity, speedOfSound, type AtmosphericConditions } from "./atmosphere";
+import { curveToDragTable, dragCoefficient, tableFor, type DragTable, type DragCurve, type DragModel } from "./drag";
 
 export const BC_LBIN2_TO_KGM2 = 703.0696;
 export const DRAG_FACTOR = Math.PI / 8.0;

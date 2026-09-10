@@ -1,0 +1,63 @@
+:root {
+  --bg: #121212;
+  --panel: #1c1c1c;
+  --panel2: #242424;
+  --border: #333;
+  --text: #e6e6e6;
+  --muted: #9a9a9a;
+  --green: #4caf50;
+  --blue: #42a5f5;
+  --red: #ff4d4d;
+  --amber: #ffb74d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
+body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+h1, h2, h3 { margin: 0 0 8px; font-weight: 600; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; color: var(--muted); font-weight: 500; }
+main { max-width: 640px; margin: 0 auto; padding: 12px 12px 8px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+label.f { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 2px; }
+input[type="number"], input[type="text"], select {
+  width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 10px; font-size: 1rem; min-height: 44px;
+}
+input[type="range"] { width: 100%; accent-color: var(--green); }
+button, .btn { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.95rem; min-height: 44px; cursor: pointer; }
+button.primary { background: var(--green); color: #000; border-color: var(--green); font-weight: 600; }
+button.active { border-color: var(--green); color: var(--green); }
+button.small { min-height: 36px; padding: 6px 10px; font-size: 0.85rem; }
+button:disabled { opacity: 0.5; }
+.chips { display: flex; gap: 6px; }
+.chips button { flex: 1; padding: 8px 0; }
+.muted { color: var(--muted); font-size: 0.85rem; }
+.solution { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid #0f3460; border-radius: 14px; padding: 14px; text-align: center; margin: 10px 0; }
+.elev { font-size: 46px; line-height: 1.05; font-weight: 700; color: var(--green); text-shadow: 0 0 14px rgba(76,175,80,.45); }
+.wind { font-size: 28px; line-height: 1.1; font-weight: 600; color: var(--blue); }
+.sub { font-size: 13px; color: #9aa; letter-spacing: 1px; margin-top: 2px; }
+.note { border-radius: 8px; padding: 8px 10px; font-size: 0.85rem; margin: 8px 0; }
+.note.info { background: #12263a; color: #9fd0ff; }
+.note.warn { background: #3a2a12; color: #ffd28a; }
+.note.err { background: #3a1212; color: #ff9a9a; }
+.note.ok { background: #123a1a; color: #9fe0a8; }
+details { margin: 8px 0; }
+summary { cursor: pointer; color: var(--muted); padding: 6px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th, td { padding: 6px 4px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+.tabs { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #181818; border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); z-index: 10; }
+.tabs button { flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--muted); font-size: 0.75rem; padding: 8px 0 6px; min-height: 56px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.tabs button.on { color: var(--green); }
+.tabs .ico { font-size: 1.3rem; }
+.seg { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: transparent; min-height: 40px; }
+.seg button.on { background: var(--green); color: #000; font-weight: 600; }
+.metric { background: var(--panel2); border-radius: 8px; padding: 8px; text-align: center; }
+.metric .v { font-size: 1.1rem; font-weight: 600; }
+.metric .l { font-size: 0.75rem; color: var(--muted); }
+.scroll { overflow-x: auto; }

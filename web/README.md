@@ -13,9 +13,8 @@ npm run sync-data  # refresh src/data/bullets.json from ../data/bullet_library.j
 ```
 
 ## Deploy
-Built inside the main `Dockerfile` (stage 1) and served by Caddy on Railway together with
-the legacy Streamlit app: `ballistics.ge/` = PWA, `ballistics.ge/old/` = Streamlit.
-No extra service needed — push to `main` and Railway rebuilds.
+Railway builds the root `Dockerfile` (Node build stage → Caddy static image) on every push to
+`main` and serves `dist/` on `$PORT`. `robots.txt` / `sitemap.xml` live in `public/`.
 
 State (profiles, conditions, settings) lives in `localStorage`; nothing is sent to a server.
 Weather uses Open-Meteo directly from the browser. `src/lib/license.ts` holds the license

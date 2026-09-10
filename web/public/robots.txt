@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ballistics.ge/sitemap.xml

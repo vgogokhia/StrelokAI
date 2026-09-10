@@ -1,15 +1,10 @@
 # ballistics.ge — SEO & Google Search Console checklist
 
 ## What the app already does
-- `<title>`: "ballistics.ge — Ballistic Calculator | MRAD, MOA, .308, .22 LR"
-- Injected into `<head>` on load (`core/seo.py`): meta description & keywords (KA+EN),
-  canonical `https://ballistics.ge/`, Open Graph + Twitter cards, `lang="ka"`,
-  JSON-LD `WebApplication` schema.
-- Visible H1 + tagline and a bilingual "About" section with the keywords Google needs.
+- `<title>` and meta description in `web/index.html`; bilingual About text in the More tab.
 
 ## One-time setup (≈15 min)
-1. **Cloudflare Worker** for `robots.txt` / `sitemap.xml`: paste `deploy/cloudflare-worker-seo.js`,
-   add routes `ballistics.ge/robots.txt` and `ballistics.ge/sitemap.xml` (only those two).
+1. `robots.txt` / `sitemap.xml` are served by the app itself (`web/public/`).
    Check: https://ballistics.ge/robots.txt and https://ballistics.ge/sitemap.xml open.
 2. **Search Console** → Add property → *Domain* `ballistics.ge` → verify via **DNS TXT**
    (Cloudflare DNS → add the TXT record Google shows, name `@`). Domain property covers

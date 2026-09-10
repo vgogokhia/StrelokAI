@@ -7,7 +7,7 @@ export default defineConfig({
     svelte(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icons/icon-192.png", "icons/icon-512.png"],
+      includeAssets: ["icons/icon-192.png", "icons/icon-512.png", "robots.txt", "sitemap.xml"],
       manifest: {
         name: "ballistics.ge — Ballistic Calculator",
         short_name: "ballistics.ge",
@@ -26,7 +26,6 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,json,woff2}"],
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/old/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.open-meteo\.com\/.*/i,

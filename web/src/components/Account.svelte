@@ -99,7 +99,7 @@
 </script>
 
 <div class="account-bar">
-  <a href="/" class="brand">ballistics.ge</a>
+  <a href="/" class="brand" aria-label="Ballistics.ge home"><img src="/brand/ballistics-logo.png" alt="Ballistics.ge" width="1200" height="520" fetchpriority="high" /></a>
   <button class="small" onclick={() => open = !open} aria-expanded={open}>{user ? 'My account' : 'Sign in'}</button>
 </div>
 {#if open}
@@ -120,7 +120,9 @@
 {/if}
 <style>
   .account-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .brand { color: var(--text); text-decoration: none; font-weight: 600; }
+  .brand { display: block; position: relative; flex: 0 1 350px; min-width: 0; aspect-ratio: 3.2; overflow: hidden; }
+  .brand img { position: absolute; width: 120%; max-width: none; height: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  .account-bar > button { flex-shrink: 0; }
   .google { display: inline-flex; align-items: center; text-decoration: none; background: white; color: #1f1f1f; }
   p { overflow-wrap: anywhere; }
 </style>

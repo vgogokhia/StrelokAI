@@ -123,7 +123,7 @@
   }
 </script>
 
-<h2>🎯 ballistics.ge</h2>
+<h2 class="visually-hidden">Ballistics calculator</h2>
 <div class="muted" style="margin:-6px 0 10px">{store.rifle.name} · {store.ammoSel.name} · {fmtVel(store.actualMv, u)}</div>
 
 <div class="card">

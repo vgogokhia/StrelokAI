@@ -7,7 +7,7 @@ export default defineConfig({
     svelte(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icons/icon-192.png", "icons/icon-512.png", "robots.txt", "sitemap.xml"],
+      includeAssets: ["icons/ballistics-b-192.png", "icons/ballistics-b-512.png", "icons/ballistics-b-16.png", "icons/ballistics-b-32.png", "icons/ballistics-b-180.png", "brand/ballistics-logo.png", "robots.txt", "sitemap.xml"],
       manifest: {
         name: "ballistics.ge — Ballistic Calculator",
         short_name: "ballistics.ge",
@@ -19,8 +19,8 @@ export default defineConfig({
         start_url: "/",
         lang: "en",
         icons: [
-          { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          { src: "icons/ballistics-b-192.png", sizes: "192x192", type: "image/png" },
+          { src: "icons/ballistics-b-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
         ],
       },
       workbox: {

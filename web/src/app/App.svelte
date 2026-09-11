@@ -4,6 +4,7 @@
   import Profiles from "../components/Profiles.svelte";
   import DopeCard from "../components/DopeCard.svelte";
   import Reticle from "../components/Reticle.svelte";
+  import Account from "../components/Account.svelte";
   import More from "../components/More.svelte";
 
   type Tab = "calc" | "profiles" | "dope" | "reticle" | "more";
@@ -29,6 +30,7 @@
 </script>
 
 <main>
+  <Account />
   {#if tab === "calc"}<Calculator />
   {:else if tab === "profiles"}<Profiles />
   {:else if tab === "dope"}<DopeCard />

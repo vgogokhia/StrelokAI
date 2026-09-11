@@ -74,7 +74,10 @@ export const defaultAmmo = (): AmmoProfile => ({
   massGrains: 175, diameterIn: 0.308, lengthIn: 1.24, muzzleVelocityMps: 792, mvTempC: 15, tempSensitivity: 0.1,
 });
 
-const KEY = "bge_state_v1";
+const GUEST_KEY = "bge_state_v1";
+const hadGuestProfiles = localStorage.getItem(GUEST_KEY) !== null;
+let owner = localStorage.getItem("bge_owner") || "";
+const stateKey = () => owner ? `bge_account_${owner}` : GUEST_KEY;
 
 interface Persisted {
   rifles: RifleProfile[];
@@ -88,7 +91,7 @@ interface Persisted {
 
 function load(): Persisted | null {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(stateKey());
     return raw ? (JSON.parse(raw) as Persisted) : null;
   } catch {
     return null;
@@ -205,11 +208,44 @@ class Store {
         rifles: $state.snapshot(this.rifles), ammo: $state.snapshot(this.ammo), rifleId: this.rifleId, ammoId: this.ammoId,
         cond: $state.snapshot(this.cond), settings: $state.snapshot(this.settings), recent: $state.snapshot(this.recent),
       };
-      localStorage.setItem(KEY, JSON.stringify(p));
+      localStorage.setItem(stateKey(), JSON.stringify(p));
     } catch { /* storage unavailable */ }
   }
+  get owner() { return owner; }
+  hasSavedProfiles = load() !== null;
+  profileData() {
+    return JSON.parse(JSON.stringify({ rifles: this.rifles, ammo: this.ammo }));
+  }
+  applyProfiles(value: unknown) {
+    const data = value as { rifles: RifleProfile[]; ammo: AmmoProfile[] };
+    const valid = (records: unknown, template: object) => Array.isArray(records) && records.every(record =>
+      record && Object.entries(template).every(([key, example]) => {
+        const value = record[key];
+        if (example === null) return value === null || typeof value === "number" && Number.isFinite(value) || key === "bcSegments" && Array.isArray(value);
+        return typeof value === typeof example && (typeof value !== "number" || Number.isFinite(value));
+      }));
+    if (!data || !valid(data.rifles, defaultRifle()) || !valid(data.ammo, defaultAmmo())) throw new Error("Invalid profile data");
+    this.rifles = data.rifles.length ? data.rifles : [defaultRifle()];
+    this.ammo = data.ammo.length ? data.ammo : [defaultAmmo()];
+    if (!this.rifles.some(r => r.id === this.rifleId)) this.rifleId = this.rifles[0].id;
+    if (!this.ammo.some(a => a.id === this.ammoId)) this.ammoId = this.ammo[0].id;
+    this.persist();
+  }
+  switchOwner(id: string): boolean {
+    this.persist();
+    owner = id;
+    localStorage.setItem("bge_owner", id);
+    let saved = load();
+    // Import the original device profiles once. Guest data is retained as a backup.
+    if (id && !saved && hadGuestProfiles && !localStorage.getItem("bge_guest_imported")) {
+      const guest = localStorage.getItem(GUEST_KEY);
+      if (guest) { saved = JSON.parse(guest); localStorage.setItem("bge_guest_imported", id); }
+    }
+    this.applyProfiles(saved || { rifles: [], ammo: [] });
+    return Boolean(saved);
+  }
   reset() {
-    try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+    try { localStorage.removeItem(stateKey()); } catch { /* ignore */ }
     location.reload();
   }
 }

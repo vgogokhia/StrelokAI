@@ -26,7 +26,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,json,woff2}"],
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/blog(?:\/|$)/],
+        navigateFallbackDenylist: [/^\/blog(?:\/|$)/, /^\/(?:api|auth)(?:\/|$)/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.open-meteo\.com\/.*/i,
@@ -37,6 +37,7 @@ export default defineConfig({
       },
     }),
   ],
+  server: { proxy: { "/api": "http://localhost:8080", "/auth": "http://localhost:8080" } },
   build: { target: "es2020", sourcemap: false },
   test: { globals: true, include: ["tests/**/*.test.ts"] },
 });

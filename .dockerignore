@@ -1,7 +1,10 @@
 .git
+**/node_modules
+**/dist
+**/*.sqlite*
+**/.env*
 .streamlit/secrets.toml
 __pycache__
 *.pyc
-tests
 .devcontainer
 START.bat

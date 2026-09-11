@@ -1,0 +1,21 @@
+{
+  "name": "ballistics-accounts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node start.mjs",
+    "test": "node --test *.test.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "google-auth-library": "11.0.2"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

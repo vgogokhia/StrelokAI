@@ -1,7 +1,13 @@
 :{$PORT}
 root * /srv
 encode gzip
-try_files {path} /index.html
-file_server
+redir /blog /blog/ 308
+handle /blog/* {
+  file_server
+}
+handle {
+  try_files {path} /index.html
+  file_server
+}
 header /sw.js Cache-Control "no-cache"
 header /index.html Cache-Control "no-cache"

@@ -26,6 +26,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,json,woff2}"],
         navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/blog(?:\/|$)/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.open-meteo\.com\/.*/i,

@@ -40,6 +40,9 @@
   <div class="muted" style="margin-top:6px">Torso ~45 cm · head ~18 cm · deer chest ~45–50 cm · IPSC 30×45 cm</div>
 </div>
 
+<h2>სამართლებრივი გზამკვლევები</h2>
+<div class="card"><a href="/blog/" style="color:var(--green)">იარაღის შენახვა, ვაზნების გადატანა და კითხვა–პასუხი</a></div>
+
 <h2>ℹ️ About</h2>
 <div class="card">
   <p><b>ballistics.ge</b> — უფასო ბალისტიკური კალკულატორი. მუშაობს ოფლაინ: დაამატე მთავარ ეკრანზე (Add to Home Screen) და პოლიგონზე ინტერნეტი აღარ დაგჭირდება.</p>

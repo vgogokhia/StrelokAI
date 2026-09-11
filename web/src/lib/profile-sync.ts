@@ -16,7 +16,7 @@ export function mergeProfiles(base: ProfileData, local: ProfileData, remote: Pro
       else if (equal(right, before)) { if (left) result[kind].push(left); }
       else {
         if (right) result[kind].push(right);
-        if (left) result[kind].push(right ? { ...left, id: crypto.randomUUID(), name: `${left.name.slice(0,260)} (სხვა ვერსია)` } : left);
+        if (left) result[kind].push(right ? { ...left, id: crypto.randomUUID(), name: `${left.name.slice(0,260)} (conflicting copy)` } : left);
       }
     }
   }

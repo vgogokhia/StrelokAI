@@ -39,7 +39,7 @@ adapter. No production data or Google credentials are used in tests.
   the expected account to prevent a tab from uploading to a newly switched session.
 - Writes require the exact origin and a revision match. Concurrent changes merge on
   the client against its last synchronized snapshot. Conflicting edits keep both
-  records, with the local copy marked `(სხვა ვერსია)`. An edit wins over a concurrent
+  records, with the local copy marked `(conflicting copy)`. An edit wins over a concurrent
   deletion, while an uncontested deletion propagates.
 - The original guest snapshot stays on the device and is imported into the first
   account once. Account caches use separate storage keys. Logout revokes the session

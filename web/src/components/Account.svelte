@@ -4,7 +4,7 @@
   import { emptyProfiles, mergeProfiles, type ProfileData } from '../lib/profile-sync';
   let user = $state<{ id: string; email: string; name: string } | null>(null);
   let enabled = $state(false);
-  let status = $state('ანგარიშის შემოწმება…');
+  let status = $state('Checking your account…');
   let open = $state(false);
   let busy = $state(false);
   let initialized = false;
@@ -37,14 +37,14 @@
       saveBase();
       if (JSON.stringify(applied) !== JSON.stringify(store.profileData())) store.applyProfiles(applied);
       localOnFirstSync = null;
-      status = 'პროფილები სინქრონიზებულია';
+      status = 'Profiles synced';
     } catch (error) {
       const code = (error as Error).message;
       if (code === '401' || code === 'account_changed') { user = null; initialized = false; }
-      status = code === '401' ? 'სესია დასრულდა — შედით ხელახლა. ცვლილებები მოწყობილობაზე შენახულია.'
-        : code === 'account_changed' ? 'ანგარიში შეიცვალა. ხელახლა ვამოწმებთ შესვლას.'
-        : code === '409' ? 'ანგარიში ან მონაცემები შეიცვალა — ხელახლა სცადეთ სინქრონიზაცია.'
-        : 'სინქრონიზაცია ვერ შესრულდა. ცვლილებები მოწყობილობაზე შენახულია.';
+      status = code === '401' ? 'Your session has expired. Sign in again. Changes are saved on this device.'
+        : code === 'account_changed' ? 'Your account has changed. Checking your sign-in again.'
+        : code === '409' ? 'Your account or profiles have changed. Please try syncing again.'
+        : 'Could not sync. Changes are saved on this device.';
     } finally { busy = false; }
   }
   async function initialize() {
@@ -60,15 +60,15 @@
         initialized = true;
         await sync();
       } else {
-        status = store.owner ? 'შედით ხელახლა სინქრონიზაციისთვის. პროფილები მოწყობილობაზე შენახულია.' : 'შეინახეთ პროფილები ანგარიშზე და გახსენით სხვა მოწყობილობაზეც.';
+        status = store.owner ? 'Sign in again to sync. Profiles are saved on this device.' : 'Save your profiles to your account and access them on other devices.';
       }
       const params = new URLSearchParams(location.search);
       if (params.has('auth')) {
-        if (params.get('auth') === 'failed') { status = 'Google-ით შესვლა ვერ დასრულდა. სცადეთ ხელახლა.'; open = true; }
+        if (params.get('auth') === 'failed') { status = 'Google sign-in could not be completed. Please try again.'; open = true; }
         params.delete('auth');
         history.replaceState(null, '', location.pathname + (params.size ? '?' + params : '') + location.hash);
       }
-    } catch { status = 'ინტერნეტთან კავშირი ვერ დამყარდა. ადგილობრივი პროფილები ხელმისაწვდომია.'; }
+    } catch { status = 'Could not connect. Your local profiles are still available.'; }
   }
   async function logout() {
     if (busy) return;
@@ -77,8 +77,8 @@
       await request('/api/logout', { method: 'POST' });
       store.switchOwner('');
       user = null; initialized = false; base = emptyProfiles();
-      status = 'ანგარიშიდან გამოხვედით. თქვენი ანგარიშის ადგილობრივი ასლი შენარჩუნებულია.';
-    } catch { status = 'გასვლა ვერ შესრულდა. შეამოწმეთ ინტერნეტი და სცადეთ ხელახლა.'; }
+      status = 'Signed out. A local copy of your account profiles is retained.';
+    } catch { status = 'Could not sign out. Check your connection and try again.'; }
     finally { busy = false; }
   }
   onMount(() => {
@@ -100,21 +100,21 @@
 
 <div class="account-bar">
   <a href="/" class="brand">ballistics.ge</a>
-  <button class="small" onclick={() => open = !open} aria-expanded={open}>{user ? 'ჩემი ანგარიში' : 'შესვლა'}</button>
+  <button class="small" onclick={() => open = !open} aria-expanded={open}>{user ? 'My account' : 'Sign in'}</button>
 </div>
 {#if open}
-  <section class="card" aria-label="ანგარიში">
-    <h2>{user ? user.name : 'თქვენი პროფილები — ყველა მოწყობილობაზე'}</h2>
+  <section class="card" aria-label="Account">
+    <h2>{user ? user.name : 'Your profiles, on every device'}</h2>
     {#if user}<p class="muted">{user.email}</p>{/if}
     <p class="muted" role="status">{status}</p>
     {#if user}
-      <div class="row"><button onclick={sync} disabled={busy}>სინქრონიზაცია</button><button onclick={logout} disabled={busy}>გასვლა</button></div>
-      <p class="muted">ერთდროული ცვლილებებისას ორივე ვერსია ინახება. ოფლაინ ცვლილებები კავშირის აღდგენისას აიტვირთება.</p>
+      <div class="row"><button onclick={sync} disabled={busy}>Sync now</button><button onclick={logout} disabled={busy}>Sign out</button></div>
+      <p class="muted">Conflicting edits keep both versions. Offline changes upload when you reconnect.</p>
     {:else if enabled}
-      <a class="btn google" href="/auth/google" onclick={() => store.persist()}>Google-ით შესვლა</a>
-      <p class="muted">პირველი შესვლისას ამ მოწყობილობის არსებული პროფილებიც თქვენს ანგარიშზე გადავა.</p>
+      <a class="btn google" href="/auth/google" onclick={() => store.persist()}>Sign in with Google</a>
+      <p class="muted">When you first sign in, existing profiles on this device are also added to your account.</p>
     {:else}
-      <p class="muted">Google-ით შესვლა ჯერ არ არის ხელმისაწვდომი. პროფილები ამ მოწყობილობაზე ინახება.</p>
+      <p class="muted">Google sign-in is not available yet. Profiles are saved on this device.</p>
     {/if}
   </section>
 {/if}

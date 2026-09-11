@@ -9,7 +9,7 @@ describe('profile synchronization', () => {
   });
   it('preserves both concurrent edits', () => {
     const result = mergeProfiles(data('base'), data('local'), data('remote'));
-    expect(result.rifles.map(p=>p.name)).toEqual(['remote','local (სხვა ვერსია)']);
+    expect(result.rifles.map(p=>p.name)).toEqual(['remote','local (conflicting copy)']);
     expect(new Set(result.rifles.map(p=>p.id)).size).toBe(2);
   });
   it('propagates deletion when the other device has not edited', () => expect(mergeProfiles(data('base'), emptyProfiles(), data('base'))).toEqual(emptyProfiles()));

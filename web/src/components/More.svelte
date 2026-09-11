@@ -40,12 +40,12 @@
   <div class="muted" style="margin-top:6px">Torso ~45 cm · head ~18 cm · deer chest ~45–50 cm · IPSC 30×45 cm</div>
 </div>
 
-<h2>სამართლებრივი გზამკვლევები</h2>
-<div class="card"><a href="/blog/" style="color:var(--green)">იარაღის შენახვა, ვაზნების გადატანა და კითხვა–პასუხი</a></div>
+<h2>Blog (Georgian)</h2>
+<div class="card"><a href="/blog/" style="color:var(--green)">Firearm storage, ammunition transport and FAQs</a></div>
 
 <h2>ℹ️ About</h2>
 <div class="card">
-  <p><b>ballistics.ge</b> — უფასო ბალისტიკური კალკულატორი. მუშაობს ოფლაინ: დაამატე მთავარ ეკრანზე (Add to Home Screen) და პოლიგონზე ინტერნეტი აღარ დაგჭირდება.</p>
+  <p><b>ballistics.ge</b> — a free ballistic calculator that works offline. Add it to your home screen to use it at the range without an internet connection.</p>
   <p class="muted">RK4 point-mass solver, G1/G7 (BRL/JBM), spin drift, aero jump, Coriolis, cant, incline, powder temperature; validated against py_ballisticcalc. Bullet library: manufacturer published data.</p>
   <p class="muted">v{version} · <a href="https://ballistics.ge" style="color:var(--green)">ballistics.ge</a></p>
   <button style="width:100%" onclick={() => { if (confirm("Reset all profiles and settings?")) store.reset(); }}>↺ Reset everything</button>

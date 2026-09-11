@@ -35,7 +35,7 @@
   </div>
   <div class="row" style="margin-top:8px">
     <div class="metric" style="flex:1"><div class="v">{Math.round(rangeM)} m</div><div class="l">estimated range</div></div>
-    <button class="primary" onclick={() => { store.setRange(rangeM); store.pushRecent(rangeM); }}>🎯 Use</button>
+    <button class="primary" onclick={() => { store.setRange(rangeM); store.pushRecent(rangeM); }}><img class="brand-icon" src="/icons/ballistics-b-192.png" alt="" width="24" height="24" /> Use</button>
   </div>
   <div class="muted" style="margin-top:6px">Torso ~45 cm · head ~18 cm · deer chest ~45–50 cm · IPSC 30×45 cm</div>
 </div>

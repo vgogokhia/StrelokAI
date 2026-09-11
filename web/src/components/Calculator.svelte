@@ -222,7 +222,7 @@
 
   <div class="card">
     <details>
-      <summary>🎯 Truing — match an observed drop (MV / BC)</summary>
+      <summary><img class="brand-icon" src="/icons/ballistics-b-192.png" alt="" width="24" height="24" /> Truing — match an observed drop (MV / BC)</summary>
       <div class="seg" style="margin:8px 0">
         <button class:on={truingMode === "mv"} onclick={() => (truingMode = "mv")}>Muzzle velocity (400–600 m)</button>
         <button class:on={truingMode === "bc"} onclick={() => (truingMode = "bc")}>BC (800 m+)</button>

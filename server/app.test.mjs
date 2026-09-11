@@ -77,3 +77,20 @@ test('profiles survive database reopen and expired sessions cannot read', async 
   setupResult.db.prepare('UPDATE sessions SET expires=0').run();
   assert.equal((await setupResult.request('/api/profiles',{headers:headers('alice')})).status,401);
 });
+test('UTF-8 profile names survive network chunk boundaries', async t => {
+  const { request: httpRequest } = await import('node:http');
+  const db = database(':memory:');
+  db.prepare('INSERT INTO accounts VALUES (?,?,?)').run('alice','a@example.test','Alice');
+  db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash('alice'),'alice',Math.floor(Date.now()/1000)+60);
+  const server=app({db,origin,webRoot:'../web/dist'});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>server.close(()=>{db.close();resolve();})));
+  const payload=Buffer.from(JSON.stringify({revision:0,data:{rifles:[{id:'one',name:'ქართული პროფილი'}],ammo:[]}}));
+  const split=payload.indexOf(Buffer.from('ქ'))+1;
+  const status=await new Promise((resolve,reject)=>{
+    const req=httpRequest({hostname:'127.0.0.1',port:server.address().port,path:'/api/profiles',method:'PUT',headers:headers('alice')},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});
+    req.on('error',reject);req.write(payload.subarray(0,split));setImmediate(()=>req.end(payload.subarray(split)));
+  });
+  assert.equal(status,200);
+  assert.equal(JSON.parse(db.prepare('SELECT data FROM profiles').get().data).rifles[0].name,'ქართული პროფილი');
+});

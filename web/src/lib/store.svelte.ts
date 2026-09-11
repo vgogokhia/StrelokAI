@@ -242,6 +242,7 @@ class Store {
       if (guest) { saved = JSON.parse(guest); localStorage.setItem("bge_guest_imported", id); }
     }
     this.applyProfiles(saved || { rifles: [], ammo: [] });
+    this.hasSavedProfiles = true;
     return Boolean(saved);
   }
   reset() {

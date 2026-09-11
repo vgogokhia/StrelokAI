@@ -91,9 +91,9 @@ export function app({ db, origin, clientId, clientSecret, webRoot, google = new 
         }
         if (url.pathname === '/api/profiles' && req.method === 'PUT') {
           if (!req.headers['content-type']?.startsWith('application/json')) return json(415, { error: 'json_required' });
-          let raw = '', size = 0;
-          for await (const chunk of req) { size += chunk.length; if (size > 1024 * 1024) return json(413, { error: 'too_large' }); raw += chunk; }
-          let body; try { body = JSON.parse(raw); } catch { return json(400, { error: 'invalid_json' }); }
+          const chunks = []; let size = 0;
+          for await (const chunk of req) { size += chunk.length; if (size > 1024 * 1024) return json(413, { error: 'too_large' }); chunks.push(chunk); }
+          let body; try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return json(400, { error: 'invalid_json' }); }
           if (!body || !Number.isSafeInteger(body.revision) || body.revision < 0 || !validProfiles(body.data)) return json(400, { error: 'invalid_profiles' });
           const data = JSON.stringify(body.data);
           // One atomic compare-and-swap: stale devices cannot overwrite newer profiles.

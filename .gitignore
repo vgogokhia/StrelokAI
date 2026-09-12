@@ -17,3 +17,11 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Account service
+node_modules/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+.env.*

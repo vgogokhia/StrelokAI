@@ -4,12 +4,13 @@
   import Profiles from "../components/Profiles.svelte";
   import DopeCard from "../components/DopeCard.svelte";
   import Reticle from "../components/Reticle.svelte";
+  import Account from "../components/Account.svelte";
   import More from "../components/More.svelte";
 
   type Tab = "calc" | "profiles" | "dope" | "reticle" | "more";
   let tab = $state<Tab>((localStorage.getItem("bge_tab") as Tab) || "calc");
   const tabs: Array<[Tab, string, string]> = [
-    ["calc", "🎯", "Calc"],
+    ["calc", "", "Calc"],
     ["profiles", "🔫", "Profiles"],
     ["dope", "📋", "Dope"],
     ["reticle", "🔭", "Reticle"],
@@ -29,6 +30,7 @@
 </script>
 
 <main>
+  <Account />
   {#if tab === "calc"}<Calculator />
   {:else if tab === "profiles"}<Profiles />
   {:else if tab === "dope"}<DopeCard />
@@ -39,7 +41,7 @@
 <nav class="tabs">
   {#each tabs as [id, ico, name]}
     <button class:on={tab === id} onclick={() => (tab = id)}>
-      <span class="ico">{ico}</span><span>{name}</span>
+      <span class="ico">{#if id === "calc"}<img class="brand-icon" src="/icons/ballistics-b-192.png" alt="" width="24" height="24" />{:else}{ico}{/if}</span><span>{name}</span>
     </button>
   {/each}
 </nav>

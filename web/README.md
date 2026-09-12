@@ -13,9 +13,9 @@ npm run sync-data  # refresh src/data/bullets.json from ../data/bullet_library.j
 ```
 
 ## Deploy
-Railway builds the root `Dockerfile` (Node build stage → Caddy static image) on every push to
+Railway builds the root `Dockerfile` (Node build stage → Node account service) on every push to
 `main` and serves `dist/` on `$PORT`. `robots.txt` / `sitemap.xml` live in `public/`.
 
-State (profiles, conditions, settings) lives in `localStorage`; nothing is sent to a server.
+Profiles are cached locally and synced to the signed-in account. Conditions and settings stay in `localStorage`. See `../server/README.md` for Google sign-in setup.
 Weather uses Open-Meteo directly from the browser. `src/lib/license.ts` holds the license
 token skeleton (`EVERYTHING_FREE = true` for now).

@@ -76,7 +76,7 @@
   </details>
 </div>
 
-<h2>🎯 Ammo</h2>
+<h2><img class="brand-icon" src="/icons/ballistics-b-192.png" alt="" width="24" height="24" /> Ammo</h2>
 <div class="card">
   <div class="row">
     <select style="flex:1" value={store.ammoId} onchange={(e) => (store.ammoId = (e.target as HTMLSelectElement).value)}>

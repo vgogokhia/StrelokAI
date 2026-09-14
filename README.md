@@ -6,7 +6,8 @@ Offline-capable ballistic calculator for precision shooters: **https://ballistic
 - `ballistics/`, `tests/` — the original Python physics engine, kept as the reference the
   TypeScript port is verified against (`pytest`, `web/tests/reference.test.ts`).
 - `data/bullet_library.json` — bullet / factory-ammo library (bundled into the app).
-- `Dockerfile`, `deploy/Caddyfile`, `railway.json` — Railway deployment (static, Caddy).
+- `server/server.mjs` — Node server: static app + feedback API + `/admin` inbox (needs `ADMIN_TOKEN`, Volume at `/data`).
+- `Dockerfile`, `railway.json` — Railway deployment.
 - `deploy/SEO.md` — Search Console checklist.
 
 ```bash

@@ -13,8 +13,10 @@ npm run sync-data  # refresh src/data/bullets.json from ../data/bullet_library.j
 ```
 
 ## Deploy
-Railway builds the root `Dockerfile` (Node build stage → Caddy static image) on every push to
-`main` and serves `dist/` on `$PORT`. `robots.txt` / `sitemap.xml` live in `public/`.
+Railway builds the root `Dockerfile` on every push to `main`: `server/server.mjs` (Node, no
+dependencies) serves `dist/`, takes feedback at `POST /api/feedback` (with optional screenshot)
+and shows the inbox at `/admin`. Set `ADMIN_TOKEN` in Railway variables to enable the inbox and
+mount a Volume at `/data` so feedback survives redeploys. `robots.txt` / `sitemap.xml` live in `public/`.
 
 State (profiles, conditions, settings) lives in `localStorage`; nothing is sent to a server.
 Weather uses Open-Meteo directly from the browser. `src/lib/license.ts` holds the license

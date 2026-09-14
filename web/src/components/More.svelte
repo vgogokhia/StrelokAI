@@ -83,6 +83,9 @@
   {#if fbNote}<div class="note {fbNote.kind}">{fbNote.text}</div>{/if}
 </div>
 
+<h2>სამართლებრივი გზამკვლევები</h2>
+<div class="card"><a href="/blog/" style="color:var(--green)">იარაღის შენახვა, ვაზნების გადატანა და კითხვა–პასუხი</a></div>
+
 <h2>ℹ️ About</h2>
 <div class="card">
   <p><b>ballistics.ge</b> — უფასო ბალისტიკური კალკულატორი. მუშაობს ოფლაინ: დაამატე მთავარ ეკრანზე (Add to Home Screen) და პოლიგონზე ინტერნეტი აღარ დაგჭირდება.</p>

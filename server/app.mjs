@@ -22,10 +22,30 @@ export function database(path) {
     CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, account TEXT NOT NULL REFERENCES accounts(id), expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS oauth (id TEXT PRIMARY KEY, state TEXT NOT NULL, nonce TEXT NOT NULL, verifier TEXT NOT NULL, expires INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS profiles (account TEXT PRIMARY KEY REFERENCES accounts(id), revision INTEGER NOT NULL, data TEXT NOT NULL);`);
+    CREATE TABLE IF NOT EXISTS profiles (account TEXT PRIMARY KEY REFERENCES accounts(id), revision INTEGER NOT NULL, data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS feedback (id TEXT PRIMARY KEY, created INTEGER NOT NULL, kind TEXT NOT NULL, message TEXT NOT NULL, contact TEXT NOT NULL,
+      meta TEXT NOT NULL, ua TEXT NOT NULL, account TEXT, image BLOB, image_type TEXT, read INTEGER NOT NULL DEFAULT 0);`);
   return db;
 }
-export function app({ db, origin, clientId, clientSecret, webRoot, google = new OAuth2Client(clientId, clientSecret, `${origin}/auth/google/callback`) }) {
+const feedbackLast = new Map(); // ip -> unix seconds (one message per minute)
+const readBody = async (req, limit) => { const chunks = []; let size = 0; for await (const c of req) { size += c.length; if (size > limit) return null; chunks.push(c); } return Buffer.concat(chunks); };
+const adminHtml = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ballistics.ge — feedback</title>
+<style>body{margin:0;background:#121212;color:#e6e6e6;font:15px/1.4 system-ui,sans-serif}main{max-width:720px;margin:0 auto;padding:12px}.c{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:12px;margin-bottom:10px}.c.read{opacity:.55}.m{color:#9a9a9a;font-size:.85rem}button{background:#242424;color:#e6e6e6;border:1px solid #333;border-radius:8px;padding:8px 12px;cursor:pointer}img{max-width:100%;border-radius:8px;margin-top:8px}pre{white-space:pre-wrap;font:inherit;margin:6px 0}a{color:#4caf50}</style>
+<main><h2>📥 Feedback inbox</h2><div id="bar"><label><input type="checkbox" id="showread" onchange="load()"> show read</label> <button onclick="load()">↻</button></div><div id="list">Loading…</div></main>
+<script>
+const $=s=>document.querySelector(s);const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function load(){const r=await fetch('/api/admin/feedback',{cache:'no-store'});if(r.status===401){$('#list').innerHTML='Sign in with an admin Google account in the app first: <a href="/auth/google">sign in</a>';return}
+if(!r.ok){$('#list').textContent='Not allowed ('+r.status+')';return}const items=await r.json();const sr=$('#showread').checked;$('#list').innerHTML='';
+if(!items.length){$('#list').textContent='No feedback yet.';return}
+for(const f of items){if(f.read&&!sr)continue;const d=document.createElement('div');d.className='c'+(f.read?' read':'');const m=f.meta||{};
+d.innerHTML='<div class="m"><b>'+esc(f.kind)+'</b> · '+new Date(f.created*1000).toISOString().slice(0,16).replace('T',' ')+' · '+esc(f.contact||'no contact')+(f.email?' · '+esc(f.email):'')+'</div><pre>'+esc(f.message)+'</pre>'
++'<div class="m">'+esc(m.version||'')+' · '+esc(m.units||'')+' · '+esc(m.rifle||'')+' / '+esc(m.ammo||'')+' · '+esc((f.ua||'').slice(0,80))+'</div>'
++(f.hasImage?'<img loading="lazy" src="/api/admin/feedback/'+encodeURIComponent(f.id)+'/image">':'')
++(f.read?'':'<div style="margin-top:8px"><button onclick="mark(\''+f.id+'\')">Mark read</button></div>');$('#list').appendChild(d)}}
+async function mark(id){await fetch('/api/admin/feedback/'+encodeURIComponent(id)+'/read',{method:'POST'});load()}load();
+</script></html>`;
+export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails = [], google = new OAuth2Client(clientId, clientSecret, `${origin}/auth/google/callback`) }) {
+  const admins = new Set(adminEmails.map(e => e.trim().toLowerCase()).filter(Boolean));
   const secure = new URL(origin).protocol === 'https:';
   const cookie = (name, value, age) => `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${secure ? '; Secure' : ''}`;
   const ready = Boolean(clientId && clientSecret);
@@ -78,6 +98,42 @@ export function app({ db, origin, clientId, clientSecret, webRoot, google = new 
       if (url.pathname.startsWith('/api/')) {
         const user = db.prepare('SELECT accounts.* FROM sessions JOIN accounts ON accounts.id=sessions.account WHERE sessions.id=? AND expires>?').get(hash(cookies.bge_session || ''), now);
         if (url.pathname === '/api/account' && req.method === 'GET') return json(200, { user: user || null, googleEnabled: ready });
+        // Feedback: anonymous, one message per minute per IP, optional screenshot (data URL, <= 2 MB).
+        if (url.pathname === '/api/feedback' && req.method === 'POST') {
+          const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+          if (now - (feedbackLast.get(ip) || 0) < 60) return json(429, { error: 'wait_a_minute' });
+          const raw = await readBody(req, 3 * 1024 * 1024);
+          if (!raw) return json(413, { error: 'too_large' });
+          let body; try { body = JSON.parse(raw.toString('utf8')); } catch { return json(400, { error: 'invalid_json' }); }
+          const message = String(body?.message || '').trim().slice(0, 4000);
+          if (message.length < 5) return json(400, { error: 'message_too_short' });
+          let image = null, imageType = null;
+          const m = typeof body.screenshot === 'string' ? body.screenshot.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/) : null;
+          if (m) { image = Buffer.from(m[2], 'base64'); imageType = `image/${m[1]}`; if (image.length > 2 * 1024 * 1024) return json(413, { error: 'image_too_large' }); }
+          const id = `${now}-${token().slice(0, 8)}`;
+          db.prepare('INSERT INTO feedback (id,created,kind,message,contact,meta,ua,account,image,image_type) VALUES (?,?,?,?,?,?,?,?,?,?)').run(
+            id, now, String(body.kind || '').slice(0, 40), message, String(body.contact || '').slice(0, 200),
+            JSON.stringify(body.meta && typeof body.meta === 'object' ? body.meta : {}).slice(0, 4000), String(req.headers['user-agent'] || '').slice(0, 300), user?.id || null, image, imageType);
+          feedbackLast.set(ip, now);
+          if (feedbackLast.size > 10000) feedbackLast.clear();
+          return json(200, { ok: true, id });
+        }
+        if (url.pathname.startsWith('/api/admin/')) {
+          if (!user) return json(401, { error: 'sign_in_required' });
+          if (!admins.has(user.email.toLowerCase())) return json(403, { error: 'not_admin' });
+          if (url.pathname === '/api/admin/feedback' && req.method === 'GET') {
+            const rows = db.prepare('SELECT f.id,f.created,f.kind,f.message,f.contact,f.meta,f.ua,f.read,(f.image IS NOT NULL) AS hasImage,a.email FROM feedback f LEFT JOIN accounts a ON a.id=f.account ORDER BY f.created DESC LIMIT 500').all();
+            return json(200, rows.map(r => ({ ...r, meta: JSON.parse(r.meta || '{}'), read: Boolean(r.read), hasImage: Boolean(r.hasImage) })));
+          }
+          const fm = url.pathname.match(/^\/api\/admin\/feedback\/([\w-]+)\/(image|read)$/);
+          if (fm && fm[2] === 'image' && req.method === 'GET') {
+            const row = db.prepare('SELECT image,image_type FROM feedback WHERE id=?').get(fm[1]);
+            if (!row?.image) return json(404, { error: 'not_found' });
+            res.writeHead(200, { 'Content-Type': row.image_type, 'Cache-Control': 'private,max-age=3600' }); return res.end(row.image);
+          }
+          if (fm && fm[2] === 'read' && req.method === 'POST') { db.prepare('UPDATE feedback SET read=1 WHERE id=?').run(fm[1]); return json(200, { ok: true }); }
+          return json(404, { error: 'not_found' });
+        }
         if (!user) return json(401, { error: 'sign_in_required' });
         if (url.pathname === '/api/logout' && req.method === 'POST') {
           db.prepare('DELETE FROM sessions WHERE id=?').run(hash(cookies.bge_session));
@@ -108,6 +164,7 @@ export function app({ db, origin, clientId, clientSecret, webRoot, google = new 
       if (url.pathname.startsWith('/auth/')) return json(404, { error: 'not_found' });
       if (!['GET', 'HEAD'].includes(req.method)) return json(405, { error: 'method' });
       if (url.pathname === '/healthz') return json(200, { ok: true });
+      if (url.pathname === '/admin') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(adminHtml); }
       if (url.pathname === '/blog') return redirect('/blog/');
       let file = resolve(root, '.' + decodeURIComponent(url.pathname));
       if (file !== root && !file.startsWith(root + sep)) return json(404, { error: 'not_found' });

@@ -51,3 +51,9 @@ adapter. No production data or Google credentials are used in tests.
   production OAuth setup above; mock tests do not establish that live consent works.
 - Paid billing and entitlement enforcement are separate work; this change does not
   enable charging users or change the current free-feature flag.
+
+## Feedback inbox
+
+Users send feedback (with an optional screenshot) from the More tab; it is stored in the same
+SQLite database. Set `ADMIN_EMAILS` (comma-separated Google account emails) and open
+`https://ballistics.ge/admin` while signed in with one of them to read and mark messages.

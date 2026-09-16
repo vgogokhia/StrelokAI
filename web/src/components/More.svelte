@@ -14,27 +14,7 @@
   });
   const version = "0.1.0";
 
-  import { compressImage, sendFeedback } from "../lib/feedback";
-  let fbKind = $state("🐞 Bug");
-  let fbMsg = $state("");
-  let fbContact = $state("");
-  let fbShot = $state<string | null>(null);
-  let fbBusy = $state(false);
-  let fbNote = $state<{ kind: string; text: string } | null>(null);
-  async function pickShot(e: Event) {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (!f) { fbShot = null; return; }
-    try { fbShot = await compressImage(f); } catch { fbNote = { kind: "err", text: "Could not read the image." }; }
-  }
-  async function submitFeedback() {
-    if (fbMsg.trim().length < 5) { fbNote = { kind: "warn", text: "Message is too short." }; return; }
-    fbBusy = true; fbNote = null;
-    const r = await sendFeedback({ kind: fbKind, message: fbMsg, contact: fbContact, screenshot: fbShot,
-      meta: { version, units: s.units, angular: s.angular, rifle: `${store.rifle.name} (${store.rifle.chambering})`, ammo: store.ammoSel.name, range: store.cond.targetRangeM, screen: `${screen.width}x${screen.height}` } });
-    fbBusy = false;
-    if (r.ok) { fbNote = { kind: "ok", text: "Thanks, received! / მადლობა, მივიღე." }; fbMsg = ""; fbContact = ""; fbShot = null; }
-    else fbNote = { kind: "err", text: r.error === "offline" ? "You are offline — try again later." : r.error === "wait_a_minute" ? "Please wait a minute before sending again." : `Could not send: ${r.error}` };
-  }
+  import Feedback from "./Feedback.svelte";
 </script>
 
 <h2>⚙️ Settings</h2>
@@ -63,21 +43,7 @@
 </div>
 
 <h2>💬 Feedback</h2>
-<div class="card">
-  <div class="muted" style="margin-bottom:8px">Found a bug or want a feature? Write here and attach a screenshot if it helps.</div>
-  <div class="seg" style="margin-bottom:8px">
-    {#each ["🐞 Bug", "💡 Idea", "💬 Other"] as k}<button class:on={fbKind === k} onclick={() => (fbKind = k)}>{k}</button>{/each}
-  </div>
-  <textarea bind:value={fbMsg} rows="4" maxlength="4000" placeholder="What happened, what you expected, which load/range…"
-    style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font:inherit"></textarea>
-  <div class="grid2" style="margin-top:8px">
-    <div><label class="f">Contact (optional)</label><input type="text" bind:value={fbContact} placeholder="email / Facebook / phone" /></div>
-    <div><label class="f">Screenshot</label><input type="file" accept="image/*" onchange={pickShot} style="width:100%" /></div>
-  </div>
-  {#if fbShot}<img src={fbShot} alt="screenshot" style="max-height:120px;border-radius:8px;margin-top:8px" />{/if}
-  <button class="primary" style="width:100%;margin-top:8px" disabled={fbBusy} onclick={submitFeedback}>📨 Send</button>
-  {#if fbNote}<div class="note {fbNote.kind}">{fbNote.text}</div>{/if}
-</div>
+<div class="card"><Feedback page="more" /></div>
 
 <h2>Blog (Georgian)</h2>
 <div class="card"><a href="/blog/" style="color:var(--green)">Firearm storage, ammunition transport and FAQs</a></div>

@@ -6,10 +6,10 @@
   const R = 110, C = 130;
   const frac = $derived(max > min ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0);
   const ang = $derived(-SWEEP / 2 + frac * SWEEP); // 0° = straight up
-  const tp = $derived(pos(trueAng, R));
-  const kp = $derived(pos(ang, R));
   const trueAng = $derived(-SWEEP / 2 + Math.min(1, Math.max(0, (trueAt - min) / (max - min))) * SWEEP);
   const pos = (a: number, r: number) => ({ x: C + r * Math.sin((a * Math.PI) / 180), y: C - r * Math.cos((a * Math.PI) / 180) });
+  const tp = $derived(pos(trueAng, R));
+  const kp = $derived(pos(ang, R));
   const arc = (a0: number, a1: number, r: number) => { const p0 = pos(a0, r), p1 = pos(a1, r); return `M${p0.x},${p0.y} A${r},${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${p1.x},${p1.y}`; };
   const ticks = $derived.by(() => { const out: { a: number; big: boolean; label?: string }[] = []; const n = Math.round(max - min);
     for (let i = 0; i <= n; i++) { const m = min + i; const a = -SWEEP / 2 + ((m - min) / (max - min)) * SWEEP; const big = n <= 12 || i % Math.ceil(n / 12) === 0; out.push({ a, big, label: big ? String(m) : undefined }); }

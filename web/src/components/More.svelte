@@ -52,6 +52,7 @@
 <div class="card">
   <p><b>ballistics.ge</b> — a free ballistic calculator that works offline. Add it to your home screen to use it at the range without an internet connection.</p>
   <p class="muted">RK4 point-mass solver, G1/G7 (BRL/JBM), spin drift, aero jump, Coriolis, cant, incline, powder temperature; validated against py_ballisticcalc. Bullet library: manufacturer published data.</p>
-  <p class="muted">v{version} · <a href="https://ballistics.ge" style="color:var(--green)">ballistics.ge</a></p>
+  <p class="muted">Free for now. If usage grows a lot, a small one-time Pro fee may be introduced to cover costs — everyone who signed in before that keeps Pro free. <a href="/pricing/" style="color:var(--green)">Pricing</a></p>
+  <p class="muted">v{version} · <a href="/terms/" style="color:var(--green)">Terms</a> · <a href="/privacy/" style="color:var(--green)">Privacy</a> · <a href="/refunds/" style="color:var(--green)">Refunds</a> · <a href="mailto:hello@ballistics.ge" style="color:var(--green)">hello@ballistics.ge</a></p>
   <button style="width:100%" onclick={() => { if (confirm("Reset all profiles and settings?")) store.reset(); }}>↺ Reset everything</button>
 </div>

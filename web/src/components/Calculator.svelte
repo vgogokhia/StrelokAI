@@ -81,13 +81,29 @@
   let sensorPitch = $state<number | null>(null);
   let sensorRoll = $state<number | null>(null);
   let sensorsOn = $state(false);
+  // Smoothing: exponential moving average on the raw sensor stream (heading as a unit vector so 359°→1° doesn't
+  // swing through 180°), then the displayed value is refreshed at most 4×/s and only when it moved past a deadband.
+  const ALPHA = 0.15;          // EMA weight per sample (~60 Hz stream → ~0.3 s settle)
+  const UI_MS = 250;           // display refresh interval
+  const DEAD_H = 2, DEAD_T = 0.7; // deadband: heading °, tilt °
+  let hx = 0, hy = 0, sp: number | null = null, sr: number | null = null, lastUi = 0;
   function onOrient(e: DeviceOrientationEvent & { webkitCompassHeading?: number }) {
     let h: number | null = null;
     if (e.webkitCompassHeading != null) h = e.webkitCompassHeading;
     else if (e.alpha != null) h = 360 - e.alpha;
-    if (h != null) sensorHeading = ((Math.round(h) % 360) + 360) % 360;
-    if (e.beta != null) { let b = e.beta; if (b > 90) b = 180 - b; if (b < -90) b = -180 - b; sensorPitch = Math.round(b * 2) / 2; }
-    if (e.gamma != null) sensorRoll = Math.round(e.gamma * 2) / 2;
+    if (h != null) { const r = (h * Math.PI) / 180; hx += (Math.cos(r) - hx) * ALPHA; hy += (Math.sin(r) - hy) * ALPHA; }
+    if (e.beta != null) { let b = e.beta; if (b > 90) b = 180 - b; if (b < -90) b = -180 - b; sp = sp == null ? b : sp + (b - sp) * ALPHA; }
+    if (e.gamma != null) sr = sr == null ? e.gamma : sr + (e.gamma - sr) * ALPHA;
+    const now = performance.now();
+    if (now - lastUi < UI_MS) return;
+    lastUi = now;
+    if (h != null) {
+      const sh = ((Math.round((Math.atan2(hy, hx) * 180) / Math.PI) % 360) + 360) % 360;
+      const d = sensorHeading == null ? 999 : Math.abs(((sh - sensorHeading + 540) % 360) - 180);
+      if (d >= DEAD_H) sensorHeading = sh;
+    }
+    if (sp != null && (sensorPitch == null || Math.abs(sp - sensorPitch) >= DEAD_T)) sensorPitch = Math.round(sp * 2) / 2;
+    if (sr != null && (sensorRoll == null || Math.abs(sr - sensorRoll) >= DEAD_T)) sensorRoll = Math.round(sr * 2) / 2;
   }
   async function startSensors() {
     const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };

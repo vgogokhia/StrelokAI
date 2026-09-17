@@ -2,7 +2,10 @@
   import { onMount } from 'svelte';
   import { store } from '../lib/store.svelte';
   import { emptyProfiles, mergeProfiles, type ProfileData } from '../lib/profile-sync';
-  let user = $state<{ id: string; email: string; name: string } | null>(null);
+  import { billing, openCheckout, PRO_PRICE } from '../lib/billing.svelte';
+  let upgrading = $state(false);
+  let upgradeMsg = $state('');
+  let user = $state<{ id: string; email: string; name: string; plan?: string; pro?: boolean } | null>(null);
   let enabled = $state(false);
   let status = $state('Checking your account…');
   let open = $state(false);
@@ -47,11 +50,24 @@
         : 'Could not sync. Changes are saved on this device.';
     } finally { busy = false; }
   }
+  async function upgrade() {
+    upgrading = true; upgradeMsg = '';
+    try {
+      const paid = await openCheckout();
+      if (paid) {
+        upgradeMsg = 'Payment received — activating Pro…';
+        for (let i = 0; i < 10; i++) { await new Promise(r => setTimeout(r, 1500)); const a = await request('/api/account'); billing.set(a.user, a.billing); user = a.user; if (a.user?.pro) break; }
+        upgradeMsg = user?.pro ? 'Pro is active. Thank you!' : 'Paid, but activation is taking longer than usual. Reload in a minute or write to hello@ballistics.ge.';
+      }
+    } catch { upgradeMsg = 'Could not open checkout. Please try again.'; }
+    finally { upgrading = false; }
+  }
   async function initialize() {
     try {
       const account = await request('/api/account');
       enabled = account.googleEnabled;
       user = account.user;
+      billing.set(account.user, account.billing);
       if (user) {
         let hasLocal = store.hasSavedProfiles;
         if (store.owner !== user.id) hasLocal = store.switchOwner(user.id);
@@ -108,6 +124,12 @@
     {#if user}<p class="muted">{user.email}</p>{/if}
     <p class="muted" role="status">{status}</p>
     {#if user}
+      {#if user.pro}<p class="muted">⭐ {user.plan === 'founder' ? 'Founder — Pro is free for you, forever.' : 'Pro'}</p>{/if}
+      {#if billing.canUpgrade}
+        <button class="primary" style="width:100%" onclick={upgrade} disabled={upgrading}>{upgrading ? 'Opening checkout…' : `⭐ Upgrade to Pro — ${PRO_PRICE}`}</button>
+        <p class="muted">Unlimited profiles, cloud sync, DOPE export. No subscription. <a href="/pricing/" style="color:var(--green)">Details</a></p>
+      {/if}
+      {#if upgradeMsg}<p class="muted" role="status">{upgradeMsg}</p>{/if}
       <div class="row"><button onclick={sync} disabled={busy}>Sync now</button><button onclick={logout} disabled={busy}>Sign out</button></div>
       <p class="muted">Conflicting edits keep both versions. Offline changes upload when you reconnect.</p>
     {:else if enabled}

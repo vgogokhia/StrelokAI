@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { billing, FREE_RIFLES, FREE_AMMO } from "../lib/billing.svelte";
+  const rifleLocked = $derived(billing.limited && store.rifles.length >= FREE_RIFLES);
+  const ammoLocked = $derived(billing.limited && store.ammo.length >= FREE_AMMO);
   import { store, defaultRifle, defaultAmmo, type AmmoProfile } from "../lib/store.svelte";
   import Num from "./Num.svelte";
   import { LIBRARY, label, type BulletPreset } from "../lib/library";
@@ -45,7 +48,7 @@
     <select style="flex:1" value={store.rifleId} onchange={(e) => (store.rifleId = (e.target as HTMLSelectElement).value)}>
       {#each store.rifles as r}<option value={r.id}>{r.name}</option>{/each}
     </select>
-    <button class="small" onclick={() => store.addRifle({ ...defaultRifle(), name: `Rifle ${store.rifles.length + 1}` })}>＋</button>
+    <button class="small" title={rifleLocked ? `Free plan: ${FREE_RIFLES} rifle. Upgrade to Pro in My account.` : "Add rifle"} onclick={() => rifleLocked ? alert(`Free plan is limited to ${FREE_RIFLES} rifle. Upgrade to Pro ($5 one-time) in My account for unlimited profiles.`) : store.addRifle({ ...defaultRifle(), name: `Rifle ${store.rifles.length + 1}` })}>{rifleLocked ? "🔒" : "＋"}</button>
     <button class="small" disabled={store.rifles.length < 2} onclick={() => store.deleteRifle(rifle.id)}>🗑</button>
   </div>
   <div class="grid2" style="margin-top:8px">
@@ -82,7 +85,7 @@
     <select style="flex:1" value={store.ammoId} onchange={(e) => (store.ammoId = (e.target as HTMLSelectElement).value)}>
       {#each store.ammo as a}<option value={a.id}>{a.name}{isCompatible(rifle.chambering, a.diameterIn, a.cartridge) ? "" : " ⚠"}</option>{/each}
     </select>
-    <button class="small" onclick={() => store.addAmmo({ ...defaultAmmo(), name: `Ammo ${store.ammo.length + 1}`, cartridge: rifle.chambering })}>＋</button>
+    <button class="small" title={ammoLocked ? `Free plan: ${FREE_AMMO} loads. Upgrade to Pro in My account.` : "Add load"} onclick={() => ammoLocked ? alert(`Free plan is limited to ${FREE_AMMO} loads. Upgrade to Pro ($5 one-time) in My account for unlimited profiles.`) : store.addAmmo({ ...defaultAmmo(), name: `Ammo ${store.ammo.length + 1}`, cartridge: rifle.chambering })}>{ammoLocked ? "🔒" : "＋"}</button>
     <button class="small" disabled={store.ammo.length < 2} onclick={() => store.deleteAmmo(ammo.id)}>🗑</button>
   </div>
   {#if !ammoFits}<div class="note warn">⚠️ This ammo ({ammo.cartridge}) doesn't fit a {rifle.chambering} rifle.</div>{/if}

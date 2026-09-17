@@ -57,3 +57,21 @@ adapter. No production data or Google credentials are used in tests.
 Users send feedback (with an optional screenshot) from the More tab; it is stored in the same
 SQLite database. Set `ADMIN_EMAILS` (comma-separated Google account emails) and open
 `https://ballistics.ge/admin` while signed in with one of them to read and mark messages.
+
+## Pro upgrade (Paddle)
+
+Everything is free until `PRO_REQUIRED=1` is set. Accounts created before that are stored with
+plan `founder` and keep Pro forever; accounts created after get plan `free` (1 rifle, 3 loads)
+until they buy the one-time upgrade, which sets plan `pro` via the Paddle webhook.
+
+Railway variables:
+- `PADDLE_CLIENT_TOKEN` — Paddle → Developer tools → Authentication → client-side token
+- `PADDLE_PRICE_ID` — default `pri_01m2pydeph8kgah2xa9b80vk0x` (product `pro_01m2pyab782mwy7y6519mb9y3g`)
+- `PADDLE_WEBHOOK_SECRET` — Paddle → Developer tools → Notifications → destination
+  `https://ballistics.ge/api/paddle/webhook`, event `transaction.completed`
+- `PADDLE_ENV` — `sandbox` while testing, `production` (default) when live
+- `PRO_REQUIRED` — set to `1` on the day the fee starts; leave unset until then
+
+Flow: Account card → "Upgrade to Pro" → Paddle overlay checkout with `custom_data.account_id` →
+webhook (HMAC-verified, 5-minute replay window) → `accounts.plan='pro'`, row in `purchases` →
+client polls `/api/account` and unlocks. Refunds: change the plan manually in the DB for now.

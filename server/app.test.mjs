@@ -4,8 +4,8 @@ import { app, database, hash } from './app.mjs';
 const origin = 'http://localhost:8080';
 async function setup(t, google) {
   const db = database(':memory:');
-  db.prepare('INSERT INTO accounts VALUES (?,?,?)').run('alice', 'a@example.test', 'Alice');
-  db.prepare('INSERT INTO accounts VALUES (?,?,?)').run('bob', 'b@example.test', 'Bob');
+  db.prepare('INSERT INTO accounts (id,email,name) VALUES (?,?,?)').run('alice', 'a@example.test', 'Alice');
+  db.prepare('INSERT INTO accounts (id,email,name) VALUES (?,?,?)').run('bob', 'b@example.test', 'Bob');
   for (const name of ['alice', 'bob']) db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(name), name, Math.floor(Date.now()/1000)+60);
   const server = app({ db, origin, clientId: 'test-client', clientSecret: 'test-secret', webRoot: '../web/dist', google });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -67,7 +67,7 @@ test('profiles survive database reopen and expired sessions cannot read', async 
   t.after(() => rmSync(dir, {recursive:true,force:true}));
   const path = join(dir,'accounts.sqlite');
   let db = database(path);
-  db.prepare('INSERT INTO accounts VALUES (?,?,?)').run('owner','owner@example.test','Owner');
+  db.prepare('INSERT INTO accounts (id,email,name) VALUES (?,?,?)').run('owner','owner@example.test','Owner');
   db.prepare('INSERT INTO profiles VALUES (?,?,?)').run('owner',7,JSON.stringify(data));
   db.close();
   db=database(path);
@@ -80,7 +80,7 @@ test('profiles survive database reopen and expired sessions cannot read', async 
 test('UTF-8 profile names survive network chunk boundaries', async t => {
   const { request: httpRequest } = await import('node:http');
   const db = database(':memory:');
-  db.prepare('INSERT INTO accounts VALUES (?,?,?)').run('alice','a@example.test','Alice');
+  db.prepare('INSERT INTO accounts (id,email,name) VALUES (?,?,?)').run('alice','a@example.test','Alice');
   db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash('alice'),'alice',Math.floor(Date.now()/1000)+60);
   const server=app({db,origin,webRoot:'../web/dist'});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -93,4 +93,28 @@ test('UTF-8 profile names survive network chunk boundaries', async t => {
   });
   assert.equal(status,200);
   assert.equal(JSON.parse(db.prepare('SELECT data FROM profiles').get().data).rifles[0].name,'ქართული პროფილი');
+});
+
+test('paddle webhook upgrades the account only with a valid signature', async t => {
+  const { createHmac } = await import('node:crypto');
+  const db = database(':memory:');
+  db.prepare("INSERT INTO accounts (id,email,name,plan) VALUES (?,?,?,?)").run('carol', 'c@example.test', 'Carol', 'free');
+  db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash('carol'), 'carol', Math.floor(Date.now()/1000)+60);
+  const server = app({ db, origin, clientId: 'x', clientSecret: 'y', webRoot: '../web/dist', paddle: { required: true, webhookSecret: 'whsec', priceId: 'pri_1', clientToken: 'tok' } });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  t.after(() => new Promise(r => server.close(() => { db.close(); r(); })));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const body = JSON.stringify({ event_id: 'evt_1', event_type: 'transaction.completed', data: { id: 'txn_1', currency_code: 'USD', details: { totals: { total: '500' } }, custom_data: { account_id: 'carol' } } });
+  const ts = Math.floor(Date.now()/1000);
+  const sign = secret => `ts=${ts};h1=${createHmac('sha256', secret).update(`${ts}:${body}`).digest('hex')}`;
+  let r = await fetch(`${base}/api/paddle/webhook`, { method: 'POST', body, headers: { 'Paddle-Signature': sign('wrong') } });
+  assert.equal(r.status, 401);
+  assert.equal(db.prepare('SELECT plan FROM accounts WHERE id=?').get('carol').plan, 'free');
+  r = await fetch(`${base}/api/paddle/webhook`, { method: 'POST', body, headers: { 'Paddle-Signature': sign('whsec') } });
+  assert.equal(r.status, 200);
+  assert.equal(db.prepare('SELECT plan FROM accounts WHERE id=?').get('carol').plan, 'pro');
+  const acct = await (await fetch(`${base}/api/account`, { headers: { Cookie: 'bge_session=carol' } })).json();
+  assert.equal(acct.user.pro, true);
+  assert.equal(acct.billing.required, true);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM purchases').get().n, 1);
 });

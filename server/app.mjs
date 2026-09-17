@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { readFile, stat } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
@@ -24,7 +24,13 @@ export function database(path) {
     CREATE TABLE IF NOT EXISTS oauth (id TEXT PRIMARY KEY, state TEXT NOT NULL, nonce TEXT NOT NULL, verifier TEXT NOT NULL, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS profiles (account TEXT PRIMARY KEY REFERENCES accounts(id), revision INTEGER NOT NULL, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS feedback (id TEXT PRIMARY KEY, created INTEGER NOT NULL, kind TEXT NOT NULL, message TEXT NOT NULL, contact TEXT NOT NULL,
-      meta TEXT NOT NULL, ua TEXT NOT NULL, account TEXT, image BLOB, image_type TEXT, read INTEGER NOT NULL DEFAULT 0);`);
+      meta TEXT NOT NULL, ua TEXT NOT NULL, account TEXT, image BLOB, image_type TEXT, read INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS purchases (id TEXT PRIMARY KEY, account TEXT NOT NULL REFERENCES accounts(id), created INTEGER NOT NULL,
+      amount TEXT NOT NULL, currency TEXT NOT NULL, raw TEXT NOT NULL);`);
+  // Plans: 'founder' = signed in while everything was free (keeps Pro forever), 'free', 'pro' (paid).
+  for (const col of ['plan TEXT NOT NULL DEFAULT \'founder\'', 'plan_since INTEGER', 'created INTEGER']) {
+    try { db.exec(`ALTER TABLE accounts ADD COLUMN ${col}`); } catch { /* exists */ }
+  }
   return db;
 }
 const feedbackLast = new Map(); // ip -> unix seconds (one message per minute)
@@ -44,11 +50,21 @@ d.innerHTML='<div class="m"><b>'+esc(f.kind)+'</b> · '+new Date(f.created*1000)
 +(f.read?'':'<div style="margin-top:8px"><button onclick="mark(\''+f.id+'\')">Mark read</button></div>');$('#list').appendChild(d)}}
 async function mark(id){await fetch('/api/admin/feedback/'+encodeURIComponent(id)+'/read',{method:'POST'});load()}load();
 </script></html>`;
-export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails = [], google = new OAuth2Client(clientId, clientSecret, `${origin}/auth/google/callback`) }) {
+export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails = [], paddle = {}, google = new OAuth2Client(clientId, clientSecret, `${origin}/auth/google/callback`) }) {
   const admins = new Set(adminEmails.map(e => e.trim().toLowerCase()).filter(Boolean));
   const secure = new URL(origin).protocol === 'https:';
   const cookie = (name, value, age) => `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${secure ? '; Secure' : ''}`;
   const ready = Boolean(clientId && clientSecret);
+  // paddle: { required, clientToken, priceId, env ('sandbox'|'production'), webhookSecret }
+  const proRequired = Boolean(paddle.required);
+  const hasPro = plan => plan === 'pro' || plan === 'founder';
+  const verifyPaddle = (sig, raw) => {
+    if (!paddle.webhookSecret || !sig) return false;
+    const parts = Object.fromEntries(sig.split(';').map(s => s.split('=')));
+    if (!parts.ts || !parts.h1 || Math.abs(Date.now() / 1000 - Number(parts.ts)) > 300) return false;
+    const h = createHmac('sha256', paddle.webhookSecret).update(`${parts.ts}:`).update(raw).digest('hex');
+    return h.length === parts.h1.length && timingSafeEqual(Buffer.from(h), Buffer.from(parts.h1));
+  };
   const root = resolve(webRoot);
   return createServer(async (req, res) => {
     const url = new URL(req.url, origin);
@@ -62,6 +78,20 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
     try {
       if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
         res.setHeader('Cache-Control', 'no-store');
+        if (url.pathname === '/api/paddle/webhook') {
+          if (req.method !== 'POST') return json(405, { error: 'method' });
+          const raw = await readBody(req, 512 * 1024);
+          if (!raw || !verifyPaddle(req.headers['paddle-signature'], raw)) return json(401, { error: 'signature' });
+          let ev; try { ev = JSON.parse(raw.toString('utf8')); } catch { return json(400, { error: 'json' }); }
+          if (ev.event_type === 'transaction.completed' || ev.event_type === 'transaction.paid') {
+            const d = ev.data || {}; const account = d.custom_data?.account_id;
+            if (account && db.prepare('SELECT id FROM accounts WHERE id=?').get(account)) {
+              db.prepare('INSERT OR IGNORE INTO purchases VALUES (?,?,?,?,?,?)').run(d.id || ev.event_id, account, now, String(d.details?.totals?.total ?? ''), d.currency_code || '', raw.toString('utf8').slice(0, 20000));
+              db.prepare("UPDATE accounts SET plan='pro', plan_since=? WHERE id=? AND plan<>'pro'").run(now, account);
+            }
+          }
+          return json(200, { ok: true });
+        }
         if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin !== origin) return json(403, { error: 'origin' });
       }
       if (url.pathname === '/auth/google' && req.method === 'GET') {
@@ -86,8 +116,8 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
           const ticket = await google.verifyIdToken({ idToken: tokens.id_token, audience: clientId });
           const identity = ticket.getPayload();
           if (!identity?.sub || !identity.email_verified || identity.nonce !== attempt.nonce) return redirect('/?auth=failed');
-          db.prepare('INSERT INTO accounts VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,name=excluded.name')
-            .run(identity.sub, identity.email, identity.name || identity.email);
+          db.prepare('INSERT INTO accounts (id,email,name,plan,created) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,name=excluded.name')
+            .run(identity.sub, identity.email, identity.name || identity.email, proRequired ? 'free' : 'founder', now);
           const session = token();
           if (cookies.bge_session) db.prepare('DELETE FROM sessions WHERE id = ?').run(hash(cookies.bge_session));
           db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(session), identity.sub, now + ttl);
@@ -97,7 +127,9 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
       }
       if (url.pathname.startsWith('/api/')) {
         const user = db.prepare('SELECT accounts.* FROM sessions JOIN accounts ON accounts.id=sessions.account WHERE sessions.id=? AND expires>?').get(hash(cookies.bge_session || ''), now);
-        if (url.pathname === '/api/account' && req.method === 'GET') return json(200, { user: user || null, googleEnabled: ready });
+        if (url.pathname === '/api/account' && req.method === 'GET') return json(200, {
+          user: user ? { id: user.id, email: user.email, name: user.name, plan: user.plan, pro: hasPro(user.plan) } : null, googleEnabled: ready,
+          billing: { required: proRequired, priceId: paddle.priceId || null, clientToken: paddle.clientToken || null, env: paddle.env || 'production' } });
         // Feedback: anonymous, one message per minute per IP, optional screenshot (data URL, <= 2 MB).
         if (url.pathname === '/api/feedback' && req.method === 'POST') {
           const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';

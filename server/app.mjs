@@ -16,7 +16,7 @@ export function validProfiles(value) {
       p && typeof p === 'object' && !Array.isArray(p) && typeof p.id === 'string' && p.id.length > 0 && p.id.length <= 128 &&
       typeof p.name === 'string' && p.name.length <= 300 && JSON.stringify(p).length <= 16000));
 }
-export function database(path) {
+export function database(path, { sessionTtl = 60 * 60 * 24 * 30 } = {}) {
   const db = new DatabaseSync(path);
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
     CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL);
@@ -31,9 +31,11 @@ export function database(path) {
     CREATE TABLE IF NOT EXISTS purchases (id TEXT PRIMARY KEY, account TEXT NOT NULL REFERENCES accounts(id), created INTEGER NOT NULL,
       amount TEXT NOT NULL, currency TEXT NOT NULL, raw TEXT NOT NULL);`);
   // Plans: 'founder' = signed in while everything was free (keeps Pro forever), 'free', 'pro' (paid).
-  for (const col of ['plan TEXT NOT NULL DEFAULT \'founder\'', 'plan_since INTEGER', 'created INTEGER']) {
+  for (const col of ['plan TEXT NOT NULL DEFAULT \'founder\'', 'plan_since INTEGER', 'created INTEGER', 'last_seen INTEGER']) {
     try { db.exec(`ALTER TABLE accounts ADD COLUMN ${col}`); } catch { /* exists */ }
   }
+  // Accounts that predate the `created` column: best estimate is when their oldest live session was issued.
+  db.exec(`UPDATE accounts SET created = (SELECT MIN(expires) - ${sessionTtl} FROM sessions s WHERE s.account = accounts.id) WHERE created IS NULL`);
   return db;
 }
 const feedbackLast = new Map(); // ip -> unix seconds (one message per minute)
@@ -139,6 +141,7 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
       }
       if (url.pathname.startsWith('/api/')) {
         const user = db.prepare('SELECT accounts.* FROM sessions JOIN accounts ON accounts.id=sessions.account WHERE sessions.id=? AND expires>?').get(hash(cookies.bge_session || ''), now);
+        if (user && !(user.last_seen > now - 600)) db.prepare('UPDATE accounts SET last_seen=? WHERE id=?').run(now, user.id);
         if (url.pathname === '/api/account' && req.method === 'GET') return json(200, {
           user: user ? { id: user.id, email: user.email, name: user.name, plan: user.plan, pro: hasPro(user.plan) } : null, googleEnabled: ready,
           billing: { required: proRequired, priceId: paddle.priceId || null, clientToken: paddle.clientToken || null, env: paddle.env || 'production' } });
@@ -173,13 +176,13 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
             const rows = db.prepare(`SELECT a.id,a.email,a.name,a.plan,a.created,a.plan_since,p.revision,p.data,
                 (SELECT COUNT(*) FROM feedback f WHERE f.account=a.id) AS feedback,
                 (SELECT COUNT(*) FROM activity x WHERE x.account=a.id) AS activity,
-                (SELECT MAX(created) FROM activity x WHERE x.account=a.id) AS lastActive
+                MAX(COALESCE((SELECT MAX(created) FROM activity x WHERE x.account=a.id),0), COALESCE(a.last_seen,0)) AS lastActive
               FROM accounts a LEFT JOIN profiles p ON p.account=a.id ORDER BY a.created DESC, a.rowid DESC LIMIT 2000`).all();
             const last = db.prepare('SELECT created,kind,lat,lon FROM activity WHERE account=? ORDER BY created DESC LIMIT 20');
             return json(200, rows.map(r => { let d = {}; try { d = JSON.parse(r.data || '{}'); } catch {}
-              return { id: r.id, email: r.email, name: r.name, plan: r.plan, created: r.created, planSince: r.plan_since, revision: r.revision || 0,
+              return { id: r.id, email: r.email, name: r.name, plan: r.plan, created: r.created || null, planSince: r.plan_since, revision: r.revision || 0,
                 rifles: (d.rifles || []).map(x => `${x.name || '?'} (${x.chambering || '?'})`), ammo: (d.ammo || []).map(x => `${x.name || '?'} (${x.cartridge || '?'})`),
-                feedback: r.feedback, activity: r.activity, lastActive: r.lastActive, locations: last.all(r.id) }; }));
+                feedback: r.feedback, activity: r.activity, lastActive: r.lastActive || null, locations: last.all(r.id) }; }));
           }
           const fm = url.pathname.match(/^\/api\/admin\/feedback\/([\w-]+)\/(image|read)$/);
           if (fm && fm[2] === 'image' && req.method === 'GET') {

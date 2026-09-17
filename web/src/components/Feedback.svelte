@@ -4,7 +4,7 @@
 
   let { onsent = undefined as (() => void) | undefined, page = "" } = $props();
   const s = $derived(store.settings);
-  const version = "0.1.0";
+  const version = __APP_VERSION__;
   const KINDS = ["🐞 Bug", "✨ Feature request", "💬 Other"];
 
   let kind = $state(KINDS[0]);

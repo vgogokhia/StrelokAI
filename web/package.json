@@ -1,9 +1,9 @@
 {
   "name": "ballistics-ge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "ballistics.ge — offline-capable ballistic calculator (PWA)",
+  "description": "ballistics.ge \u2014 offline-capable ballistic calculator (PWA)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

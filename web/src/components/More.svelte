@@ -12,7 +12,7 @@
     const mrad = s.angular === "MOA" ? observed / MRAD_TO_MOA : observed;
     return mrad > 0 ? (sizeCm / 100) * 1000 / mrad : 0;
   });
-  const version = "0.1.0";
+  const version = __APP_VERSION__;
 
   import Feedback from "./Feedback.svelte";
 </script>

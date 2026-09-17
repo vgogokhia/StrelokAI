@@ -1,8 +1,14 @@
 import { defineConfig } from "vite";
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
+const sha = (process.env.RAILWAY_GIT_COMMIT_SHA || process.env.SOURCE_COMMIT || (() => { try { return execSync("git rev-parse HEAD").toString(); } catch { return "dev"; } })()).trim().slice(0, 7);
+const APP_VERSION = `${pkg.version}+${sha}`;
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   plugins: [
     svelte(),
     VitePWA({

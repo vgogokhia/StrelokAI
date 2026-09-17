@@ -25,6 +25,9 @@ export function database(path) {
     CREATE TABLE IF NOT EXISTS profiles (account TEXT PRIMARY KEY REFERENCES accounts(id), revision INTEGER NOT NULL, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS feedback (id TEXT PRIMARY KEY, created INTEGER NOT NULL, kind TEXT NOT NULL, message TEXT NOT NULL, contact TEXT NOT NULL,
       meta TEXT NOT NULL, ua TEXT NOT NULL, account TEXT, image BLOB, image_type TEXT, read INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS activity (id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT NOT NULL REFERENCES accounts(id), created INTEGER NOT NULL,
+      kind TEXT NOT NULL, lat REAL, lon REAL);
+    CREATE INDEX IF NOT EXISTS activity_account ON activity(account, created);
     CREATE TABLE IF NOT EXISTS purchases (id TEXT PRIMARY KEY, account TEXT NOT NULL REFERENCES accounts(id), created INTEGER NOT NULL,
       amount TEXT NOT NULL, currency TEXT NOT NULL, raw TEXT NOT NULL);`);
   // Plans: 'founder' = signed in while everything was free (keeps Pro forever), 'free', 'pro' (paid).
@@ -35,9 +38,9 @@ export function database(path) {
 }
 const feedbackLast = new Map(); // ip -> unix seconds (one message per minute)
 const readBody = async (req, limit) => { const chunks = []; let size = 0; for await (const c of req) { size += c.length; if (size > limit) return null; chunks.push(c); } return Buffer.concat(chunks); };
-const adminHtml = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ballistics.ge — feedback</title>
+const adminHtml = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ballistics.ge — admin</title>
 <style>body{margin:0;background:#121212;color:#e6e6e6;font:15px/1.4 system-ui,sans-serif}main{max-width:720px;margin:0 auto;padding:12px}.c{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:12px;margin-bottom:10px}.c.read{opacity:.55}.m{color:#9a9a9a;font-size:.85rem}button{background:#242424;color:#e6e6e6;border:1px solid #333;border-radius:8px;padding:8px 12px;cursor:pointer}img{max-width:100%;border-radius:8px;margin-top:8px}pre{white-space:pre-wrap;font:inherit;margin:6px 0}a{color:#4caf50}</style>
-<main><h2>📥 Feedback inbox</h2><div id="bar"><label><input type="checkbox" id="showread" onchange="load()"> show read</label> <button onclick="load()">↻</button></div><div id="list">Loading…</div></main>
+<main><div style="margin-bottom:10px"><button onclick="tab('fb')">📥 Feedback</button> <button onclick="tab('us')">👤 Users</button></div><section id="fb"><h2>📥 Feedback inbox</h2><div id="bar"><label><input type="checkbox" id="showread" onchange="load()"> show read</label> <button onclick="load()">↻</button></div><div id="list">Loading…</div></section><section id="us" hidden><h2>👤 Users <span class="m" id="ucount"></span></h2><div id="users">Loading…</div></section></main>
 <script>
 const $=s=>document.querySelector(s);const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function load(){const r=await fetch('/api/admin/feedback',{cache:'no-store'});if(r.status===401){$('#list').innerHTML='Sign in with an admin Google account in the app first: <a href="/auth/google">sign in</a>';return}
@@ -49,6 +52,15 @@ d.innerHTML='<div class="m"><b>'+esc(f.kind)+'</b> · '+new Date(f.created*1000)
 +(f.hasImage?'<img loading="lazy" src="/api/admin/feedback/'+encodeURIComponent(f.id)+'/image">':'')
 +(f.read?'':'<div style="margin-top:8px"><button onclick="mark(\''+f.id+'\')">Mark read</button></div>');$('#list').appendChild(d)}}
 async function mark(id){await fetch('/api/admin/feedback/'+encodeURIComponent(id)+'/read',{method:'POST'});load()}load();
+const ts=t=>t?new Date(t*1000).toISOString().slice(0,16).replace('T',' '):'—';
+function tab(n){$('#fb').hidden=n!=='fb';$('#us').hidden=n!=='us';if(n==='us')users()}
+async function users(){const r=await fetch('/api/admin/users',{cache:'no-store'});if(!r.ok){$('#users').textContent='Not allowed ('+r.status+')';return}const list=await r.json();
+$('#ucount').textContent=list.length+' total · '+list.filter(u=>u.plan==='pro').length+' paid';$('#users').innerHTML='';
+for(const u of list){const d=document.createElement('div');d.className='c';
+const loc=u.locations.map(l=>ts(l.created)+(l.lat!=null?' · <a href="https://www.google.com/maps?q='+l.lat+','+l.lon+'">'+l.lat+', '+l.lon+'</a>':'')).join('<br>');
+d.innerHTML='<div><b>'+esc(u.name)+'</b> · '+esc(u.email)+' · <span class="m">'+esc(u.plan)+'</span></div><div class="m">registered '+ts(u.created)+' · last active '+ts(u.lastActive)+' · syncs rev '+u.revision+' · feedback '+u.feedback+'</div>'
++'<div class="m">🔫 '+(u.rifles.length?esc(u.rifles.join(', ')):'no rifles synced')+'</div><div class="m">🎯 '+(u.ammo.length?esc(u.ammo.join(', ')):'no loads synced')+'</div>'
++(loc?'<details><summary class="m">📍 '+u.activity+' weather syncs</summary><div class="m">'+loc+'</div></details>':'');$('#users').appendChild(d)}}
 </script></html>`;
 export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails = [], paddle = {}, google = new OAuth2Client(clientId, clientSecret, `${origin}/auth/google/callback`) }) {
   const admins = new Set(adminEmails.map(e => e.trim().toLowerCase()).filter(Boolean));
@@ -157,6 +169,18 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
             const rows = db.prepare('SELECT f.id,f.created,f.kind,f.message,f.contact,f.meta,f.ua,f.read,(f.image IS NOT NULL) AS hasImage,a.email FROM feedback f LEFT JOIN accounts a ON a.id=f.account ORDER BY f.created DESC LIMIT 500').all();
             return json(200, rows.map(r => ({ ...r, meta: JSON.parse(r.meta || '{}'), read: Boolean(r.read), hasImage: Boolean(r.hasImage) })));
           }
+          if (url.pathname === '/api/admin/users' && req.method === 'GET') {
+            const rows = db.prepare(`SELECT a.id,a.email,a.name,a.plan,a.created,a.plan_since,p.revision,p.data,
+                (SELECT COUNT(*) FROM feedback f WHERE f.account=a.id) AS feedback,
+                (SELECT COUNT(*) FROM activity x WHERE x.account=a.id) AS activity,
+                (SELECT MAX(created) FROM activity x WHERE x.account=a.id) AS lastActive
+              FROM accounts a LEFT JOIN profiles p ON p.account=a.id ORDER BY a.created DESC, a.rowid DESC LIMIT 2000`).all();
+            const last = db.prepare('SELECT created,kind,lat,lon FROM activity WHERE account=? ORDER BY created DESC LIMIT 20');
+            return json(200, rows.map(r => { let d = {}; try { d = JSON.parse(r.data || '{}'); } catch {}
+              return { id: r.id, email: r.email, name: r.name, plan: r.plan, created: r.created, planSince: r.plan_since, revision: r.revision || 0,
+                rifles: (d.rifles || []).map(x => `${x.name || '?'} (${x.chambering || '?'})`), ammo: (d.ammo || []).map(x => `${x.name || '?'} (${x.cartridge || '?'})`),
+                feedback: r.feedback, activity: r.activity, lastActive: r.lastActive, locations: last.all(r.id) }; }));
+          }
           const fm = url.pathname.match(/^\/api\/admin\/feedback\/([\w-]+)\/(image|read)$/);
           if (fm && fm[2] === 'image' && req.method === 'GET') {
             const row = db.prepare('SELECT image,image_type FROM feedback WHERE id=?').get(fm[1]);
@@ -170,6 +194,15 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
         if (url.pathname === '/api/logout' && req.method === 'POST') {
           db.prepare('DELETE FROM sessions WHERE id=?').run(hash(cookies.bge_session));
           res.setHeader('Set-Cookie', cookie('bge_session', '', 0));
+          return json(200, { ok: true });
+        }
+        if (url.pathname === '/api/activity' && req.method === 'POST') {
+          let b; try { b = JSON.parse((await readBody(req, 4096)).toString('utf8')); } catch { return json(400, { error: 'json' }); }
+          const kind = ['weather', 'locate'].includes(b?.kind) ? b.kind : 'weather';
+          // Store ~1 km resolution only; we never keep exact positions.
+          const ok = Number.isFinite(b?.lat) && Number.isFinite(b?.lon) && Math.abs(b.lat) <= 90 && Math.abs(b.lon) <= 180;
+          db.prepare('INSERT INTO activity (account,created,kind,lat,lon) VALUES (?,?,?,?,?)').run(user.id, now, kind, ok ? Math.round(b.lat * 100) / 100 : null, ok ? Math.round(b.lon * 100) / 100 : null);
+          db.prepare('DELETE FROM activity WHERE account=? AND id NOT IN (SELECT id FROM activity WHERE account=? ORDER BY created DESC LIMIT 500)').run(user.id, user.id);
           return json(200, { ok: true });
         }
         if (url.pathname === '/api/profiles' && req.headers['x-account-id'] !== user.id) return json(409, { error: 'account_changed' });

@@ -7,6 +7,11 @@
     altFrom, altTo, altLabel, fmtAng, fmtDrop, fmtRange, fmtVel, fmtEnergy, fmtTemp, fmtPress, clicksFor, toAngular, fromAngular,
   } from "../lib/units";
   import { fetchWeather, locate } from "../lib/weather";
+  import { billing } from "../lib/billing.svelte";
+  function logActivity(kind: "weather" | "locate") {
+    if (!billing.user) return; // only signed-in users; ~1 km resolution, see /privacy/
+    fetch("/api/activity", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, lat: store.cond.lat, lon: store.cond.lon }) }).catch(() => {});
+  }
 
   const u = $derived(store.settings.units);
   const ang = $derived(store.settings.angular);
@@ -60,6 +65,7 @@
       store.cond.tempC = w.temperatureC; store.cond.pressureMbar = w.pressureMbar; store.cond.humidityPct = w.humidityPct;
       store.cond.windSpeedMps = w.windSpeedMps; store.cond.windDirDeg = w.windDirectionDeg;
       if (w.elevationM) store.cond.altitudeM = w.elevationM;
+      logActivity("weather");
       msg = { kind: "ok", text: `✅ ${fmtTemp(w.temperatureC, u)} · ${fmtPress(w.pressureMbar, u)} · RH ${w.humidityPct.toFixed(0)}% · wind ${windFrom(w.windSpeedMps, u).toFixed(1)} ${speedLabel(u)} from ${w.windDirectionDeg.toFixed(0)}°` };
     } catch (e) {
       msg = { kind: "err", text: "Weather service unreachable (offline?). Values left unchanged." };

@@ -50,7 +50,7 @@ for(const f of items){if(f.read&&!sr)continue;const d=document.createElement('di
 d.innerHTML='<div class="m"><b>'+esc(f.kind)+'</b> · '+new Date(f.created*1000).toISOString().slice(0,16).replace('T',' ')+' · '+esc(f.contact||'no contact')+(f.email?' · '+esc(f.email):'')+'</div><pre>'+esc(f.message)+'</pre>'
 +'<div class="m">'+esc(m.version||'')+' · '+esc(m.units||'')+' · '+esc(m.rifle||'')+' / '+esc(m.ammo||'')+' · '+esc((f.ua||'').slice(0,80))+'</div>'
 +(f.hasImage?'<img loading="lazy" src="/api/admin/feedback/'+encodeURIComponent(f.id)+'/image">':'')
-+(f.read?'':'<div style="margin-top:8px"><button onclick="mark(\''+f.id+'\')">Mark read</button></div>');$('#list').appendChild(d)}}
++(f.read?'':'<div style="margin-top:8px"><button data-id=\"'+esc(f.id)+'\" onclick=\"mark(this.dataset.id)\">Mark read</button></div>');$('#list').appendChild(d)}}
 async function mark(id){await fetch('/api/admin/feedback/'+encodeURIComponent(id)+'/read',{method:'POST'});load()}load();
 const ts=t=>t?new Date(t*1000).toISOString().slice(0,16).replace('T',' '):'—';
 function tab(n){$('#fb').hidden=n!=='fb';$('#us').hidden=n!=='us';if(n==='us')users()}

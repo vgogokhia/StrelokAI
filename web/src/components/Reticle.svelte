@@ -3,6 +3,9 @@
   import { RETICLES, holdUnits, renderSvg } from "../lib/reticles";
   import { dropMrad, windageMrad } from "../core";
   import Num from "./Num.svelte";
+  import ZoomRing from "./ZoomRing.svelte";
+  // Entering 0 (or anything below the scope minimum) snaps back to the "true at" power.
+  function setMag(v: number) { s.reticleCurMag = v < 1 ? s.reticleCalMag : Math.min(s.scopeMaxMag ?? 50, v); }
   import { fmtRange, fmtAng } from "../lib/units";
 
   const u = $derived(store.settings.units);
@@ -30,10 +33,18 @@
     <div><label class="f">Focal plane</label>
       <div class="seg"><button class:on={s.reticleFp === "FFP"} onclick={() => (s.reticleFp = "FFP")}>FFP</button><button class:on={s.reticleFp === "SFP"} onclick={() => (s.reticleFp = "SFP")}>SFP</button></div></div>
     {#if s.reticleFp === "SFP"}
-      <Num label="Reticle true at (×)" value={s.reticleCalMag} step={0.5} min={1} max={50} onchange={(v) => (s.reticleCalMag = v)} />
-      <Num label="Current magnification (×)" value={s.reticleCurMag} step={0.5} min={1} max={50} onchange={(v) => (s.reticleCurMag = v)} />
+      <Num label="Scope zoom range: min (×)" value={s.scopeMinMag ?? 3} step={0.5} min={1} max={50} onchange={(v) => (s.scopeMinMag = v)} />
+      <Num label="max (×)" value={s.scopeMaxMag ?? 15} step={0.5} min={1} max={60} onchange={(v) => (s.scopeMaxMag = v)} />
+      <Num label="Reticle true at (×)" value={s.reticleCalMag} step={0.5} min={1} max={60} onchange={(v) => (s.reticleCalMag = v)} />
+      <Num label="Current magnification (×, 0 = reset)" value={s.reticleCurMag} step={0.5} min={0} max={60} onchange={setMag} />
     {/if}
   </div>
+  {#if s.reticleFp === "SFP"}
+    <div style="margin-top:10px">
+      <ZoomRing value={s.reticleCurMag} min={s.scopeMinMag ?? 3} max={s.scopeMaxMag ?? 15} trueAt={s.reticleCalMag} onchange={(v) => (s.reticleCurMag = v)} />
+      <div class="muted" style="text-align:center;margin-top:4px">Turn the ring like your scope's power ring. Marks below scale with it.</div>
+    </div>
+  {/if}
   {#if spec.note}<div class="muted" style="margin-top:6px">{spec.note}</div>{/if}
 </div>
 

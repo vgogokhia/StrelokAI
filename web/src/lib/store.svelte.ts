@@ -59,6 +59,8 @@ export interface Settings {
   reticleFp: "FFP" | "SFP";
   reticleCalMag: number;
   reticleCurMag: number;
+  scopeMinMag: number;
+  scopeMaxMag: number;
   turretPerRev: number;
 }
 
@@ -109,7 +111,7 @@ class Store {
   });
   settings = $state<Settings>({
     units: "metric", angular: "MRAD", click: "0.1 MRAD", reticle: "MIL-Dot", reticleFp: "FFP",
-    reticleCalMag: 10, reticleCurMag: 10, turretPerRev: 10,
+    reticleCalMag: 10, reticleCurMag: 10, scopeMinMag: 3, scopeMaxMag: 15, turretPerRev: 10,
   });
   recent = $state<number[]>([]);
   weatherStatus = $state("");

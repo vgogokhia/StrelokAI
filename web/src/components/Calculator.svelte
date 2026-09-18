@@ -24,6 +24,13 @@
   const elevDir = $derived(pt && pt.dropM < 0 ? "UP" : "DOWN");
   const windDial = $derived(pt && pt.windageM < 0 ? "RIGHT" : "LEFT");
   const impactSide = $derived(pt && pt.windageM < 0 ? "left" : "right");
+  // Lead for a moving target: lateral speed × time of flight, expressed as an angle at the target.
+  const lead = $derived.by(() => {
+    const c = store.cond; if (!pt || !(c.targetSpeedKmh > 0)) return null;
+    const lateral = (c.targetSpeedKmh / 3.6) * Math.sin((c.targetDirDeg * Math.PI) / 180); // + = target moving right
+    const m = lateral * pt.timeS; if (Math.abs(m) < 0.005) return null;
+    return { m, mrad: (Math.abs(m) / c.targetRangeM) * 1000, dir: m > 0 ? "RIGHT" : "LEFT" };
+  });
 
   const relDesc = $derived.by(() => {
     const w = store.windRelDeg;
@@ -146,7 +153,7 @@
 </script>
 
 <h2 class="visually-hidden">Ballistics calculator</h2>
-<div class="muted" style="margin:-6px 0 10px">{store.rifle.name} · {store.ammoSel.name} · {fmtVel(store.actualMv, u)}</div>
+<div class="muted" style="margin:-6px 0 10px">{store.rifle.name} · {store.ammoSel.name} · {fmtVel(store.actualMv, u)} · SG {sol.stabilityFactor.toFixed(2)}</div>
 
 <div class="card">
   <div class="row" style="flex-wrap:nowrap">
@@ -175,6 +182,11 @@
     <div style="margin-top:8px"></div>
     <div class="wind">{clicksFor(windageMrad(pt), store.clickMrad)} {windDial[0]}</div>
     <div class="sub">WINDAGE · dial {windDial} {fmtAng(Math.abs(windageMrad(pt)), ang)} (impact {impactSide})</div>
+    {#if lead}
+      <div style="margin-top:8px"></div>
+      <div class="wind" style="color:var(--amber,#e6b450)">{lead.dir === "RIGHT" ? "→" : "←"} {fmtAng(lead.mrad, ang)}</div>
+      <div class="sub">LEAD · hold {fmtAng(lead.mrad, ang)} {lead.dir} ({fmtDrop(Math.abs(lead.m), u)}) · TOF {pt.timeS.toFixed(2)} s</div>
+    {/if}
     <div class="sub" style="color:#667;margin-top:6px">{fmtRange(store.cond.targetRangeM, u)} · impacts {fmtDrop(Math.abs(pt.dropM), u)} {pt.dropM < 0 ? "low" : "high"} · {fmtDrop(Math.abs(pt.windageM), u)} {impactSide}</div>
   </div>
   {#if transonic}<div class="note {transonic.kind}">{transonic.text}</div>{/if}
@@ -206,6 +218,19 @@
       <Num label="Shot angle (° + uphill)" value={store.cond.shotAngleDeg} step={1} min={-60} max={60} onchange={(v) => (store.cond.shotAngleDeg = v)} />
       <Num label="Cant (° + right)" value={store.cond.cantAngleDeg} step={1} min={-45} max={45} onchange={(v) => (store.cond.cantAngleDeg = v)} />
     </div>
+  </details>
+  <details>
+    <summary>Moving target {store.cond.targetSpeedKmh > 0 ? `· ${u === "imperial" ? Math.round(store.cond.targetSpeedKmh * 0.621371) + " mph" : store.cond.targetSpeedKmh + " km/h"}` : "· stationary"}</summary>
+    <div class="grid2" style="margin-top:8px">
+      <Num label={`Target speed (${u === "imperial" ? "mph" : "km/h"})`} value={store.cond.targetSpeedKmh} from={(k) => u === "imperial" ? k * 0.621371 : k} to={(v) => u === "imperial" ? v / 0.621371 : v} step={1} min={0} max={120} digits={0} onchange={(v) => (store.cond.targetSpeedKmh = v)} />
+      <div><label class="f">Moving</label>
+        <div class="seg"><button class:on={store.cond.targetDirDeg === 270} onclick={() => (store.cond.targetDirDeg = 270)}>← R to L</button><button class:on={store.cond.targetDirDeg === 90} onclick={() => (store.cond.targetDirDeg = 90)}>L to R →</button></div></div>
+    </div>
+    <div class="chips" style="margin-top:6px">
+      {#each [["walking", 5], ["trotting", 12], ["running deer", 35], ["boar", 40]] as [l, k]}<button class:active={store.cond.targetSpeedKmh === k} onclick={() => (store.cond.targetSpeedKmh = k as number)}>{l}</button>{/each}
+      <button class:active={store.cond.targetSpeedKmh === 0} onclick={() => (store.cond.targetSpeedKmh = 0)}>stationary</button>
+    </div>
+    <div class="muted" style="margin-top:6px">Lead = target speed across the line of fire × time of flight. Hold into the direction of travel.</div>
   </details>
 </div>
 

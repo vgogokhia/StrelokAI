@@ -48,6 +48,8 @@ export interface Conditions {
   lat: number;
   lon: number;
   shotAngleDeg: number;
+  targetSpeedKmh: number;   // moving target, 0 = stationary
+  targetDirDeg: number;     // 90 = left→right across the line of fire, 270 = right→left, 0/180 = towards/away
   cantAngleDeg: number;
 }
 
@@ -107,7 +109,7 @@ class Store {
   ammoId = $state("");
   cond = $state<Conditions>({
     targetRangeM: 500, windSpeedMps: 3, windDirDeg: 270, headingDeg: 0, tempC: 15, pressureMbar: 1013,
-    humidityPct: 50, altitudeM: 0, lat: 41.7151, lon: 44.8271, shotAngleDeg: 0, cantAngleDeg: 0,
+    humidityPct: 50, altitudeM: 0, lat: 41.7151, lon: 44.8271, shotAngleDeg: 0, cantAngleDeg: 0, targetSpeedKmh: 0, targetDirDeg: 90,
   });
   settings = $state<Settings>({
     units: "metric", angular: "MRAD", click: "0.1 MRAD", reticle: "MIL-Dot", reticleFp: "FFP",

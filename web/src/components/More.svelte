@@ -15,6 +15,8 @@
   const version = __APP_VERSION__;
 
   import Feedback from "./Feedback.svelte";
+  import Metronome from "./Metronome.svelte";
+  import AngleConverter from "./AngleConverter.svelte";
 </script>
 
 <h2>⚙️ Settings</h2>
@@ -41,6 +43,12 @@
   </div>
   <div class="muted" style="margin-top:6px">Torso ~45 cm · head ~18 cm · deer chest ~45–50 cm · IPSC 30×45 cm</div>
 </div>
+
+<h2>📐 MIL / MOA at distance</h2>
+<div class="card"><AngleConverter /></div>
+
+<h2>🎵 Metronome</h2>
+<div class="card"><Metronome /></div>
 
 <h2>💬 Feedback</h2>
 <div class="card"><Feedback page="more" /></div>

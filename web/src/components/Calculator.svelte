@@ -4,10 +4,15 @@
   import { dropMrad, windageMrad, densityAltitudeFt, airDensity, speedOfSound, trueMuzzleVelocity, trueBallisticCoefficient } from "../core";
   import {
     rangeFrom, rangeTo, rangeLabel, windFrom, windTo, speedLabel, tempFrom, tempTo, tempLabel, pressFrom, pressTo, pressLabel,
-    altFrom, altTo, altLabel, fmtAng, fmtDrop, fmtRange, fmtVel, fmtEnergy, fmtTemp, fmtPress, clicksFor, toAngular, fromAngular,
+    altFrom, altTo, altLabel, fmtAng, fmtDrop, fmtRange, fmtVel, fmtEnergy, fmtTemp, fmtPress, clicksFor, toAngular, fromAngular, smallLabel, velLabel, velFrom,
   } from "../lib/units";
   import { fetchWeather, locate } from "../lib/weather";
   import { billing } from "../lib/billing.svelte";
+  import { TARGET_PRESETS } from "../core/wez";
+  const wz = $derived(store.settings.wez);
+  const pct = (p: number) => `${Math.round(p * 100)}%`;
+  const pColor = (p: number) => (p >= 0.9 ? "var(--green)" : p >= 0.7 ? "#e6b450" : "#e05a5a");
+  const sz = (m: number) => (u === "imperial" ? `${(m * 39.3701).toFixed(1)} in` : `${(m * 100).toFixed(0)} cm`);
   function logActivity(kind: "weather" | "locate") {
     if (!billing.user) return; // only signed-in users; ~1 km resolution, see /privacy/
     fetch("/api/activity", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, lat: store.cond.lat, lon: store.cond.lon }) }).catch(() => {});
@@ -19,6 +24,8 @@
   const pt = $derived(store.target());
   const quick = $derived(u === "imperial" ? [100, 300, 500, 800, 1000].map((y) => Math.round(y / 1.09361 * 10) / 10) : [100, 300, 500, 800, 1000]);
   const quickLabels = [100, 300, 500, 800, 1000];
+  const wez = $derived(store.wez());
+  const wezRanges = $derived(quick.map((m) => ({ m, r: store.wez(m) })));
   const dispRange = $derived(Math.round(rangeFrom(store.cond.targetRangeM, u)));
 
   const elevDir = $derived(pt && pt.dropM < 0 ? "UP" : "DOWN");
@@ -190,6 +197,27 @@
     <div class="sub" style="color:#667;margin-top:6px">{fmtRange(store.cond.targetRangeM, u)} · impacts {fmtDrop(Math.abs(pt.dropM), u)} {pt.dropM < 0 ? "low" : "high"} · {fmtDrop(Math.abs(pt.windageM), u)} {impactSide}</div>
   </div>
   {#if transonic}<div class="note {transonic.kind}">{transonic.text}</div>{/if}
+  <details style="margin-top:8px">
+    <summary>🎯 Hit probability{#if wez} · <b style="color:{pColor(wez.p)}">{pct(wez.p)}</b> on {sz(wz.targetWm)}×{sz(wz.targetHm)} at {fmtRange(store.cond.targetRangeM, u)}{/if}</summary>
+    {#if wez}
+      <div class="chips" style="margin-top:8px">
+        {#each wezRanges as q, i}<button style="flex-direction:column;color:{q.r ? pColor(q.r.p) : 'inherit'}" onclick={() => store.setRange(q.m)}><span>{quickLabels[i]}</span><b>{q.r ? pct(q.r.p) : "—"}</b></button>{/each}
+      </div>
+      <div class="muted" style="margin-top:8px">Error budget at {fmtRange(store.cond.targetRangeM, u)} (1σ): dispersion {fmtDrop(wez.parts.disp, u)} · MV spread {fmtDrop(wez.parts.mv, u)} vertical · wind call {fmtDrop(wez.parts.wind, u)} horizontal{#if wez.parts.range > 0.001} · range {fmtDrop(wez.parts.range, u)}{/if}. Total σ: {fmtDrop(wez.sigmaV, u)} V × {fmtDrop(wez.sigmaH, u)} H.</div>
+      <div class="chips" style="margin-top:8px;flex-wrap:wrap">
+        {#each TARGET_PRESETS as tp}<button class:active={wz.targetWm === tp.w && wz.targetHm === tp.h} onclick={() => { wz.targetWm = tp.w; wz.targetHm = tp.h; wz.shape = tp.shape; }}>{tp.name}</button>{/each}
+      </div>
+      <div class="grid2" style="margin-top:8px">
+        <Num label={`Target width (${smallLabel(u)})`} value={wz.targetWm} from={(m) => u === "imperial" ? m * 39.3701 : m * 100} to={(v) => u === "imperial" ? v / 39.3701 : v / 100} step={1} min={1} max={500} digits={0} onchange={(v) => (wz.targetWm = v)} />
+        <Num label={`Target height (${smallLabel(u)})`} value={wz.targetHm} from={(m) => u === "imperial" ? m * 39.3701 : m * 100} to={(v) => u === "imperial" ? v / 39.3701 : v / 100} step={1} min={1} max={500} digits={0} onchange={(v) => (wz.targetHm = v)} />
+        <Num label="Your group at 100 (MOA)" value={wz.groupMoa} step={0.1} min={0.1} max={10} digits={1} onchange={(v) => (wz.groupMoa = v)} />
+        <Num label={`MV spread SD (${velLabel(u)})`} value={wz.mvSdMps} from={(v) => velFrom(v, u)} to={(v) => u === "imperial" ? v / 3.28084 : v} step={1} min={0} max={100} digits={0} onchange={(v) => (wz.mvSdMps = v)} />
+        <Num label={`Wind call error (${speedLabel(u)})`} value={wz.windSdMps} from={(v) => u === "imperial" ? v * 2.23694 : v} to={(v) => u === "imperial" ? v / 2.23694 : v} step={0.5} min={0} max={20} digits={1} onchange={(v) => (wz.windSdMps = v)} />
+        <Num label="Range error (%)" value={wz.rangeSdPct} step={1} min={0} max={30} digits={0} onchange={(v) => (wz.rangeSdPct = v)} />
+      </div>
+      <div class="muted" style="margin-top:6px">Assumes a centred hold and a trued profile. Range error 0 = laser; ~5% for a reticle estimate. Ethical-shot rule of thumb: don't take game below 90%.</div>
+    {/if}
+  </details>
   {#if sol.stabilityFactor && sol.stabilityFactor < 1.3}<div class="note warn">Marginal stability (SG {sol.stabilityFactor.toFixed(2)}). Check twist and bullet length.</div>{/if}
 {/if}
 

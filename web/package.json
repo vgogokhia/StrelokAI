@@ -6,14 +6,16 @@
   "description": "ballistics.ge \u2014 offline-capable ballistic calculator (PWA)",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run gen-seo && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "sync-data": "cp ../data/bullet_library.json src/data/bullets.json"
+    "sync-data": "cp ../data/bullet_library.json src/data/bullets.json",
+    "gen-seo": "esbuild scripts/gen-seo.ts --bundle --platform=node --format=esm --outfile=.gen-seo.mjs --log-level=warning && node .gen-seo.mjs && rm .gen-seo.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "esbuild": "^0.28.2",
     "svelte": "^5.57.0",
     "svelte-check": "^4.0.0",
     "typescript": "^5.5.0",

@@ -67,34 +67,59 @@ d.innerHTML='<div><b>'+esc(u.name)+'</b> · '+esc(u.email)+' · <span class="m">
 </script></html>`;
 
 const ASSISTANT_SYSTEM = `You are the built-in assistant of ballistics.ge, a ballistic calculator for long-range shooters and hunters.
-The user tells you in plain words (often Georgian, sometimes English or Russian) what they want or what happened on the range, and you change the app's settings with tools.
-Always reply in the user's language, briefly (2-5 sentences), and say exactly what you changed with old → new values.
+Users write in plain words (usually Georgian, sometimes English or Russian). You can read the full app state and change ANY setting with tools.
+Reply in the user's language, briefly (2-5 sentences).
 
-How to act:
-- "I dialled what the app said at 600 m and hit 15 cm low" → call true_from_impact (range 600, impact_vertical_cm -15). Use method "auto" unless the user asks.
-- "at my 100 m zero I hit 3 cm high and 1 cm left" → set_zero_offset (vertical +3, horizontal -1). That is a zero shift, not truing.
-- Wind, range, temperature, pressure, angle, moving target → set_conditions. Wind direction is where the wind comes FROM in degrees true; if the user gives a clock position (e.g. "3 o'clock") convert it relative to the shooting heading from the state: from = heading + clock*30.
-- Units, MRAD/MOA, click value → set_settings. Switching rifle or ammo → select_profile.
-- Only change what the user asked for or what the miss clearly implies. If the report is ambiguous (unknown range, unknown whether they dialled the app's solution), ask one short question instead of guessing.
-- After a tool result, read the new solution in it and tell the user the new dial/hold.
-- Never invent measurements. Never give advice on anything illegal or unsafe; remind the user to confirm on paper when a change is large (MV change > 30 m/s or BC change > 15%).
-Sign conventions: vertical + = high, horizontal + = right. Impacts are relative to the point of aim.`;
+IMPORTANT — confirmation flow: every change-making tool call is shown to the user as a proposal with Apply/Cancel buttons and runs only if they approve.
+So before calling a change tool, say in one sentence what you are about to change and why. If a tool result says "declined", acknowledge it and ask what they'd like instead; do not retry the same change.
+After an approved change, read new_solution_at_target in the result and tell the user the new dial/hold.
+
+What you can do:
+- Add equipment: "I have an AR-10 in .308 and Fiocchi 175 gr HPBT" → search_library first (query, caliber, grains). Pick the best match: an exact factory load ('ammo') if present; otherwise the bullet that load uses (e.g. many 175 gr .308 match loads use the Sierra MatchKing 175) and say it is an approximation. Then create_rifle (if they don't already have it) and create_ammo with library_id, a clear name like "Fiocchi 175 HPBT", and the factory muzzle velocity if you know it reliably (otherwise keep the library default and tell them to chronograph or true it). Ask for barrel twist / sight height only if it matters and they may know it; otherwise use sensible defaults (AR-10 .308: twist 1:11.25, sight height ~65 mm on an AR-style rail).
+- Edit anything on a rifle or load: update_rifle / update_ammo (zero range, sight height, twist, MV, BC, drag model, weight, length, powder temp sensitivity...). Rename, delete, switch profiles.
+- Range feedback: "dialled the app's solution at 600 m and hit 15 cm low" → true_from_impact. "At my 100 m zero I hit 3 cm high, 1 cm left" → set_zero_offset (that's a zero shift, not truing).
+- Conditions: wind, range, temperature, pressure, humidity, altitude, angle, cant, moving target → set_conditions; "update the weather" → sync_weather. Wind direction is where the wind comes FROM in degrees true; for a clock position, from = shooting heading + clock×30.
+- Scope/reticle: set_reticle (reticle from the options list, FFP/SFP, magnification range, true-at power). Display: set_settings (metric/imperial, MRAD/MOA, click value).
+- Hit probability settings: set_hit_probability (group size, MV SD, wind-call error, target size).
+- Questions ("what's my hold at 700?", "why is my BC G7?") → answer from the state without tools.
+Rules: never invent measured values — if unknown, ask one short question or use a clearly-labelled default. Keep changes to what the user asked for. Suggest confirming on paper when MV changes > 30 m/s or BC > 15%.
+Respect the plan limits in state.plan. Nothing illegal or unsafe.
+Sign conventions: vertical + = high, horizontal + = right, relative to the point of aim. All values SI (m, m/s, °C, mbar, cm, grains, inches for bullet dimensions and twist).`;
+const num = (d) => ({ type: 'number', description: d });
 const ASSISTANT_TOOLS = [
+  { name: 'search_library', description: 'Search the built-in bullet/factory-ammo library (read-only, runs without confirmation).', input_schema: { type: 'object', properties: {
+    query: { type: 'string', description: 'free text, e.g. "fiocchi hpbt" or "sierra matchking"' }, caliber: { type: 'string', description: 'e.g. ".308", "6.5 Creedmoor"' }, grains: num('bullet weight') } } },
+  { name: 'create_rifle', description: 'Add a new rifle and select it.', input_schema: { type: 'object', required: ['name', 'chambering'], properties: {
+    name: { type: 'string' }, chambering: { type: 'string', description: 'one of state.chamberings (fuzzy ok, e.g. "308")' }, zero_range_m: num(''), sight_height_mm: num('bore axis to scope centre'),
+    twist_in: num('barrel twist, inches per turn'), twist_direction: { type: 'string', enum: ['right', 'left'] } } } },
+  { name: 'create_ammo', description: 'Add a new load and select it. Use library_id from search_library to fill bullet data; any other field overrides.', input_schema: { type: 'object', properties: {
+    library_id: { type: 'string' }, name: { type: 'string' }, cartridge: { type: 'string' }, drag_model: { type: 'string', enum: ['G1', 'G7'] }, bc: num(''), mass_grains: num(''),
+    diameter_in: num(''), length_in: num('bullet length'), muzzle_velocity_mps: num(''), mv_temp_c: num('temperature at which MV was measured'), temp_sensitivity_pct_per_c: num('MV change per °C, %') } } },
+  { name: 'update_rifle', description: 'Edit a rifle (selected one unless target_name given). Omit fields you do not change.', input_schema: { type: 'object', properties: {
+    target_name: { type: 'string' }, name: { type: 'string', description: 'new name' }, chambering: { type: 'string' }, zero_range_m: num(''), sight_height_mm: num(''), twist_in: num(''),
+    twist_direction: { type: 'string', enum: ['right', 'left'] }, zero_temp_c: num(''), zero_offset_vertical_cm: num('absolute value, + high'), zero_offset_horizontal_cm: num('absolute value, + right') } } },
+  { name: 'update_ammo', description: 'Edit a load (selected one unless target_name given). Omit fields you do not change.', input_schema: { type: 'object', properties: {
+    target_name: { type: 'string' }, name: { type: 'string', description: 'new name' }, cartridge: { type: 'string' }, drag_model: { type: 'string', enum: ['G1', 'G7'] }, bc: num(''), mass_grains: num(''),
+    diameter_in: num(''), length_in: num(''), muzzle_velocity_mps: num(''), mv_temp_c: num(''), temp_sensitivity_pct_per_c: num('') } } },
+  { name: 'delete_profile', description: 'Delete a rifle or load by name.', input_schema: { type: 'object', required: ['kind', 'name'], properties: { kind: { type: 'string', enum: ['rifle', 'ammo'] }, name: { type: 'string' } } } },
+  { name: 'select_profile', description: 'Switch rifle and/or load by (partial) name.', input_schema: { type: 'object', properties: { rifle_name: { type: 'string' }, ammo_name: { type: 'string' } } } },
   { name: 'set_conditions', description: 'Change shooting conditions. Omit fields you do not change.', input_schema: { type: 'object', properties: {
-    target_range_m: { type: 'number' }, wind_speed_mps: { type: 'number' }, wind_from_deg: { type: 'number', description: 'direction wind blows FROM, degrees true' },
-    shooting_heading_deg: { type: 'number' }, temperature_c: { type: 'number' }, pressure_mbar: { type: 'number', description: 'station pressure' }, humidity_pct: { type: 'number' },
-    altitude_m: { type: 'number' }, shot_angle_deg: { type: 'number', description: '+ uphill' }, cant_deg: { type: 'number', description: '+ right' },
-    target_speed_kmh: { type: 'number' }, target_moving: { type: 'string', enum: ['left_to_right', 'right_to_left'] } } } },
-  { name: 'true_from_impact', description: 'User dialled/held the app solution at a range and the group landed off vertically. Trues muzzle velocity (short/medium range) or BC (long range) so the prediction matches.', input_schema: { type: 'object', required: ['range_m', 'impact_vertical_cm'], properties: {
-    range_m: { type: 'number' }, impact_vertical_cm: { type: 'number', description: '+ high, - low, relative to aim' }, method: { type: 'string', enum: ['auto', 'velocity', 'bc'] } } } },
-  { name: 'set_zero_offset', description: 'The rifle is not hitting point of aim AT ITS ZERO RANGE. Records the offset so all solutions shift accordingly.', input_schema: { type: 'object', properties: {
-    vertical_cm: { type: 'number', description: '+ high' }, horizontal_cm: { type: 'number', description: '+ right' }, add: { type: 'boolean', description: 'true = add to existing offset (default), false = replace' } } } },
-  { name: 'set_ammo', description: 'Directly set the selected load muzzle velocity or ballistic coefficient when the user gives a measured/known value.', input_schema: { type: 'object', properties: {
-    muzzle_velocity_mps: { type: 'number' }, bc: { type: 'number' } } } },
+    target_range_m: num(''), wind_speed_mps: num(''), wind_from_deg: num('direction wind blows FROM, degrees true'), shooting_heading_deg: num(''), temperature_c: num(''),
+    pressure_mbar: num('station pressure'), humidity_pct: num(''), altitude_m: num(''), shot_angle_deg: num('+ uphill'), cant_deg: num('+ right'),
+    target_speed_kmh: num('moving target, 0 = stationary'), target_moving: { type: 'string', enum: ['left_to_right', 'right_to_left'] } } } },
+  { name: 'sync_weather', description: 'Fetch current weather for the saved location and apply it.', input_schema: { type: 'object', properties: {} } },
+  { name: 'true_from_impact', description: 'User dialled/held the app solution at a range and the group landed off vertically. Trues MV (<=500 m) or BC (beyond) so predictions match.', input_schema: { type: 'object', required: ['range_m', 'impact_vertical_cm'], properties: {
+    range_m: num(''), impact_vertical_cm: num('+ high, - low'), method: { type: 'string', enum: ['auto', 'velocity', 'bc'] } } } },
+  { name: 'set_zero_offset', description: 'Rifle does not hit point of aim AT ITS ZERO RANGE. Adds (default) or sets the offset.', input_schema: { type: 'object', properties: {
+    vertical_cm: num('+ high'), horizontal_cm: num('+ right'), add: { type: 'boolean' } } } },
+  { name: 'set_reticle', description: 'Scope and reticle settings.', input_schema: { type: 'object', properties: {
+    reticle: { type: 'string', description: 'one of state.settings.reticle.options (partial ok)' }, focal_plane: { type: 'string', enum: ['FFP', 'SFP'] },
+    true_at_mag: num('SFP: power where the reticle is true'), current_mag: num(''), scope_min_mag: num(''), scope_max_mag: num('') } } },
   { name: 'set_settings', description: 'Display settings.', input_schema: { type: 'object', properties: {
-    units: { type: 'string', enum: ['metric', 'imperial'] }, angular: { type: 'string', enum: ['MRAD', 'MOA'] }, click: { type: 'string', description: 'e.g. "0.1 MRAD", "1/4 MOA"' } } } },
-  { name: 'select_profile', description: 'Switch rifle and/or ammo by (partial) name from the lists in the state.', input_schema: { type: 'object', properties: {
-    rifle_name: { type: 'string' }, ammo_name: { type: 'string' } } } },
+    units: { type: 'string', enum: ['metric', 'imperial'] }, angular: { type: 'string', enum: ['MRAD', 'MOA'] }, click: { type: 'string', description: 'one of state.settings.click_options' } } } },
+  { name: 'set_hit_probability', description: 'Hit-probability model inputs.', input_schema: { type: 'object', properties: {
+    group_moa: num('5-shot group at 100'), mv_sd_mps: num(''), wind_error_mps: num('wind-call uncertainty 1σ'), range_error_pct: num(''), target_width_cm: num(''), target_height_cm: num(''),
+    shape: { type: 'string', enum: ['rect', 'ellipse'] } } } },
 ];
 
 export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails = [], paddle = {}, assistant = {}, google = new OAuth2Client(clientId, clientSecret, `${origin}/auth/google/callback`) }) {
@@ -258,7 +283,7 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
               headers: { 'content-type': 'application/json', 'x-api-key': assistant.apiKey, 'anthropic-version': '2023-06-01' },
               body: JSON.stringify({ model: assistant.model || 'claude-haiku-4-5-20251001', max_tokens: 1024,
                 system: [{ type: 'text', text: ASSISTANT_SYSTEM, cache_control: { type: 'ephemeral' } }, { type: 'text', text: `Current app state (JSON, SI units):\n${state}` }],
-                tools: ASSISTANT_TOOLS, messages: msgs }) });
+                tools: ASSISTANT_TOOLS.map((x, k, a) => (k === a.length - 1 ? { ...x, cache_control: { type: 'ephemeral' } } : x)), messages: msgs }) });
             const d = await r.json();
             if (!r.ok) return json(502, { error: 'upstream', detail: d?.error?.type || r.status });
             return json(200, { content: d.content, stop_reason: d.stop_reason, remaining: Math.max(0, limit - used - (newTurn ? 1 : 0)) });

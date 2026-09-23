@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { snapshotState, runTool, takeUndo, applyUndo } from "../lib/assistant";
+  import { snapshotState, runTool, previewTool, takeUndo, applyUndo, READ_ONLY } from "../lib/assistant";
   import { billing } from "../lib/billing.svelte";
 
   type Block = { type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown>; tool_use_id?: string; content?: string };
   type Msg = { role: "user" | "assistant"; content: string | Block[] };
-  type Line = { who: "me" | "ai" | "sys"; text: string; undo?: string };
+  type Line = { who: "me" | "ai" | "sys" | "ask"; text: string; undo?: string; items?: string[]; decide?: (ok: boolean) => void; decided?: string };
 
   let history = $state<Msg[]>([]);
   let lines = $state<Line[]>([]);
@@ -12,7 +12,7 @@
   let busy = $state(false);
   let remaining = $state<number | null>(null);
   let listEl = $state<HTMLDivElement | null>(null);
-  const EXAMPLES = ["600 მ-ზე აპის მიხედვით დავაყენე და 15 სმ-ით დაბლა მოხვდა", "ქარი 3 საათიდან, 4 მ/წმ, 450 მეტრი", "100-ზე ნულზე 2 სმ მაღლა და 1 მარცხნივ ვარტყამ", "MOA-ზე გადამიყვანე, 1/4 კლიკი"];
+  const EXAMPLES = ["AR-10 მაქვს .308, ტყვია Fiocchi HPBT 175 გრ — დამიმატე", "600 მ-ზე აპის მიხედვით დავაყენე და 15 სმ-ით დაბლა მოხვდა", "ქარი 3 საათიდან, 4 მ/წმ, 450 მეტრი", "ჩემი სკოუპი Vortex Viper PST 5-25, EBR-7C, FFP"];
 
   $effect(() => { lines.length; queueMicrotask(() => listEl?.scrollTo({ top: listEl.scrollHeight, behavior: "smooth" })); });
 
@@ -38,11 +38,23 @@
         const uses = res.content.filter((b) => b.type === "tool_use");
         if (!uses.length) { if (say) lines.push({ who: "ai", text: say, undo: changedAny ? undo : undefined }); break; }
         if (say) lines.push({ who: "ai", text: say });
-        const results: Block[] = uses.map((u) => {
-          const out = runTool(u.name!, (u.input ?? {}) as Record<string, unknown>);
-          try { const o = JSON.parse(out); if (o.changed?.length) { changedAny = true; lines.push({ who: "sys", text: "⚙️ " + o.changed.join(" · ") }); } } catch { /* ignore */ }
-          return { type: "tool_result", tool_use_id: u.id, content: out };
-        });
+        const results: Block[] = [];
+        const pending: { u: Block; changed: string[] }[] = [];
+        for (const u of uses) {
+          if (READ_ONLY.has(u.name!)) { results.push({ type: "tool_result", tool_use_id: u.id, content: await runTool(u.name!, (u.input ?? {}) as Record<string, unknown>) }); continue; }
+          const pv = await previewTool(u.name!, (u.input ?? {}) as Record<string, unknown>);
+          if (pv.error || !pv.changed.length) { results.push({ type: "tool_result", tool_use_id: u.id, content: pv.raw }); continue; }
+          pending.push({ u, changed: pv.changed });
+        }
+        if (pending.length) {
+          const ok = await new Promise<boolean>((resolve) => lines.push({ who: "ask", text: "Apply these changes?", items: pending.flatMap((p) => p.changed), decide: resolve }));
+          for (const p of pending) {
+            if (!ok) { results.push({ type: "tool_result", tool_use_id: p.u.id, content: JSON.stringify({ declined: true, note: "The user did not approve this change. Nothing was changed." }) }); continue; }
+            const out = await runTool(p.u.name!, (p.u.input ?? {}) as Record<string, unknown>);
+            try { if (JSON.parse(out).changed?.length) changedAny = true; } catch { /* ignore */ }
+            results.push({ type: "tool_result", tool_use_id: p.u.id, content: out });
+          }
+        }
         history.push({ role: "user", content: results });
       }
     } catch (e) {
@@ -61,7 +73,16 @@
     <div class="chips" style="flex-wrap:wrap">{#each EXAMPLES as ex}<button class="ex" onclick={() => send(ex)}>{ex}</button>{/each}</div>
   {/if}
   {#each lines as l}
-    <div class="msg {l.who}">{l.text}{#if l.undo}<div><button class="small" onclick={() => undo(l)}>↩️ Undo</button></div>{/if}</div>
+    {#if l.who === "ask"}
+      <div class="msg ask">
+        <b>{l.text}</b>
+        <ul>{#each l.items ?? [] as it}<li>{it}</li>{/each}</ul>
+        {#if l.decided}<div class="muted">{l.decided}</div>
+        {:else}<div class="row" style="gap:6px"><button class="primary" style="flex:1" onclick={() => { l.decided = "✅ Applied"; l.decide?.(true); }}>✅ Apply</button><button style="flex:1" onclick={() => { l.decided = "✖ Cancelled"; l.decide?.(false); }}>✖ Cancel</button></div>{/if}
+      </div>
+    {:else}
+      <div class="msg {l.who}">{l.text}{#if l.undo}<div><button class="small" onclick={() => undo(l)}>↩️ Undo</button></div>{/if}</div>
+    {/if}
   {/each}
   {#if busy}<div class="msg ai muted">…</div>{/if}
 </div>
@@ -77,6 +98,8 @@
   .msg { padding: 8px 10px; border-radius: 10px; max-width: 88%; white-space: pre-wrap; line-height: 1.35; }
   .msg.me { align-self: flex-end; background: var(--green); color: #000; }
   .msg.ai { align-self: flex-start; background: var(--panel2); border: 1px solid var(--border); }
+  .msg.ask { align-self: stretch; max-width: 100%; background: var(--panel2); border: 1px solid var(--green); }
+  .msg.ask ul { margin: 6px 0 8px 18px; padding: 0; }
   .msg.sys { align-self: center; font-size: .85rem; color: var(--muted); text-align: center; max-width: 100%; }
   .ex { flex: 1 1 45%; text-align: left; font-size: .85rem; padding: 8px; }
 </style>

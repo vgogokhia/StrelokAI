@@ -75,3 +75,10 @@ Railway variables:
 Flow: Account card → "Upgrade to Pro" → Paddle overlay checkout with `custom_data.account_id` →
 webhook (HMAC-verified, 5-minute replay window) → `accounts.plan='pro'`, row in `purchases` →
 client polls `/api/account` and unlocks. Refunds: change the plan manually in the DB for now.
+
+## AI assistant
+
+Disabled until `ANTHROPIC_API_KEY` is set (console.anthropic.com → API keys). Optional: `ASSISTANT_MODEL`
+(default `claude-haiku-4-5-20251001`), `ASSISTANT_DAILY_LIMIT` (default 30 questions per account per day).
+The server only proxies: system prompt and tool definitions live in `app.mjs`; the browser executes the tool
+calls (`web/src/lib/assistant.ts`) with the app's own solver and keeps an undo snapshot. Signed-in users only.

@@ -118,3 +118,25 @@ test('paddle webhook upgrades the account only with a valid signature', async t 
   assert.equal(acct.billing.required, true);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM purchases').get().n, 1);
 });
+
+test('assistant proxies to Anthropic with server-side tools and enforces sign-in and daily limit', async t => {
+  const db = database(':memory:');
+  db.prepare("INSERT INTO accounts (id,email,name) VALUES ('dan','d@example.test','Dan')").run();
+  db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash('dan'), 'dan', Math.floor(Date.now()/1000)+60);
+  let sent;
+  const fakeFetch = async (_url, init) => { sent = JSON.parse(init.body); return { ok: true, json: async () => ({ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }) }; };
+  const server = app({ db, origin, clientId: 'x', clientSecret: 'y', webRoot: '../web/dist', assistant: { apiKey: 'k', fetch: fakeFetch, dailyLimit: 1 } });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  t.after(() => new Promise(r => server.close(() => { db.close(); r(); })));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const body = JSON.stringify({ messages: [{ role: 'user', content: '600-ზე 15 სმ-ით დაბლა მოხვდა' }], state: '{}' });
+  let r = await fetch(`${base}/api/assistant`, { method: 'POST', body, headers: { Origin: origin } });
+  assert.equal(r.status, 401);
+  const h = { Origin: origin, Cookie: 'bge_session=dan' };
+  r = await fetch(`${base}/api/assistant`, { method: 'POST', body, headers: h });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).content[0].text, 'ok');
+  assert.ok(sent.tools.some(x => x.name === 'true_from_impact'));
+  r = await fetch(`${base}/api/assistant`, { method: 'POST', body, headers: h });
+  assert.equal(r.status, 429);
+});

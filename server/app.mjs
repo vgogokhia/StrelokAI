@@ -28,6 +28,7 @@ export function database(path, { sessionTtl = 60 * 60 * 24 * 30 } = {}) {
     CREATE TABLE IF NOT EXISTS activity (id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT NOT NULL REFERENCES accounts(id), created INTEGER NOT NULL,
       kind TEXT NOT NULL, lat REAL, lon REAL);
     CREATE INDEX IF NOT EXISTS activity_account ON activity(account, created);
+    CREATE TABLE IF NOT EXISTS assistant_usage (account TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY (account, day));
     CREATE TABLE IF NOT EXISTS purchases (id TEXT PRIMARY KEY, account TEXT NOT NULL REFERENCES accounts(id), created INTEGER NOT NULL,
       amount TEXT NOT NULL, currency TEXT NOT NULL, raw TEXT NOT NULL);`);
   // Plans: 'founder' = signed in while everything was free (keeps Pro forever), 'free', 'pro' (paid).
@@ -64,7 +65,39 @@ d.innerHTML='<div><b>'+esc(u.name)+'</b> · '+esc(u.email)+' · <span class="m">
 +'<div class="m">🔫 '+(u.rifles.length?esc(u.rifles.join(', ')):'no rifles synced')+'</div><div class="m">🎯 '+(u.ammo.length?esc(u.ammo.join(', ')):'no loads synced')+'</div>'
 +(loc?'<details><summary class="m">📍 '+u.activity+' weather syncs</summary><div class="m">'+loc+'</div></details>':'');$('#users').appendChild(d)}}
 </script></html>`;
-export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails = [], paddle = {}, google = new OAuth2Client(clientId, clientSecret, `${origin}/auth/google/callback`) }) {
+
+const ASSISTANT_SYSTEM = `You are the built-in assistant of ballistics.ge, a ballistic calculator for long-range shooters and hunters.
+The user tells you in plain words (often Georgian, sometimes English or Russian) what they want or what happened on the range, and you change the app's settings with tools.
+Always reply in the user's language, briefly (2-5 sentences), and say exactly what you changed with old → new values.
+
+How to act:
+- "I dialled what the app said at 600 m and hit 15 cm low" → call true_from_impact (range 600, impact_vertical_cm -15). Use method "auto" unless the user asks.
+- "at my 100 m zero I hit 3 cm high and 1 cm left" → set_zero_offset (vertical +3, horizontal -1). That is a zero shift, not truing.
+- Wind, range, temperature, pressure, angle, moving target → set_conditions. Wind direction is where the wind comes FROM in degrees true; if the user gives a clock position (e.g. "3 o'clock") convert it relative to the shooting heading from the state: from = heading + clock*30.
+- Units, MRAD/MOA, click value → set_settings. Switching rifle or ammo → select_profile.
+- Only change what the user asked for or what the miss clearly implies. If the report is ambiguous (unknown range, unknown whether they dialled the app's solution), ask one short question instead of guessing.
+- After a tool result, read the new solution in it and tell the user the new dial/hold.
+- Never invent measurements. Never give advice on anything illegal or unsafe; remind the user to confirm on paper when a change is large (MV change > 30 m/s or BC change > 15%).
+Sign conventions: vertical + = high, horizontal + = right. Impacts are relative to the point of aim.`;
+const ASSISTANT_TOOLS = [
+  { name: 'set_conditions', description: 'Change shooting conditions. Omit fields you do not change.', input_schema: { type: 'object', properties: {
+    target_range_m: { type: 'number' }, wind_speed_mps: { type: 'number' }, wind_from_deg: { type: 'number', description: 'direction wind blows FROM, degrees true' },
+    shooting_heading_deg: { type: 'number' }, temperature_c: { type: 'number' }, pressure_mbar: { type: 'number', description: 'station pressure' }, humidity_pct: { type: 'number' },
+    altitude_m: { type: 'number' }, shot_angle_deg: { type: 'number', description: '+ uphill' }, cant_deg: { type: 'number', description: '+ right' },
+    target_speed_kmh: { type: 'number' }, target_moving: { type: 'string', enum: ['left_to_right', 'right_to_left'] } } } },
+  { name: 'true_from_impact', description: 'User dialled/held the app solution at a range and the group landed off vertically. Trues muzzle velocity (short/medium range) or BC (long range) so the prediction matches.', input_schema: { type: 'object', required: ['range_m', 'impact_vertical_cm'], properties: {
+    range_m: { type: 'number' }, impact_vertical_cm: { type: 'number', description: '+ high, - low, relative to aim' }, method: { type: 'string', enum: ['auto', 'velocity', 'bc'] } } } },
+  { name: 'set_zero_offset', description: 'The rifle is not hitting point of aim AT ITS ZERO RANGE. Records the offset so all solutions shift accordingly.', input_schema: { type: 'object', properties: {
+    vertical_cm: { type: 'number', description: '+ high' }, horizontal_cm: { type: 'number', description: '+ right' }, add: { type: 'boolean', description: 'true = add to existing offset (default), false = replace' } } } },
+  { name: 'set_ammo', description: 'Directly set the selected load muzzle velocity or ballistic coefficient when the user gives a measured/known value.', input_schema: { type: 'object', properties: {
+    muzzle_velocity_mps: { type: 'number' }, bc: { type: 'number' } } } },
+  { name: 'set_settings', description: 'Display settings.', input_schema: { type: 'object', properties: {
+    units: { type: 'string', enum: ['metric', 'imperial'] }, angular: { type: 'string', enum: ['MRAD', 'MOA'] }, click: { type: 'string', description: 'e.g. "0.1 MRAD", "1/4 MOA"' } } } },
+  { name: 'select_profile', description: 'Switch rifle and/or ammo by (partial) name from the lists in the state.', input_schema: { type: 'object', properties: {
+    rifle_name: { type: 'string' }, ammo_name: { type: 'string' } } } },
+];
+
+export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails = [], paddle = {}, assistant = {}, google = new OAuth2Client(clientId, clientSecret, `${origin}/auth/google/callback`) }) {
   const admins = new Set(adminEmails.map(e => e.trim().toLowerCase()).filter(Boolean));
   const secure = new URL(origin).protocol === 'https:';
   const cookie = (name, value, age) => `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${secure ? '; Secure' : ''}`;
@@ -207,6 +240,29 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
           db.prepare('INSERT INTO activity (account,created,kind,lat,lon) VALUES (?,?,?,?,?)').run(user.id, now, kind, ok ? Math.round(b.lat * 100) / 100 : null, ok ? Math.round(b.lon * 100) / 100 : null);
           db.prepare('DELETE FROM activity WHERE account=? AND id NOT IN (SELECT id FROM activity WHERE account=? ORDER BY created DESC LIMIT 500)').run(user.id, user.id);
           return json(200, { ok: true });
+        }
+        if (url.pathname === '/api/assistant' && req.method === 'POST') {
+          if (!assistant.apiKey) return json(503, { error: 'assistant_disabled' });
+          let b; try { b = JSON.parse((await readBody(req, 96 * 1024)).toString('utf8')); } catch { return json(400, { error: 'json' }); }
+          const msgs = Array.isArray(b?.messages) ? b.messages.slice(-24) : null;
+          if (!msgs?.length || msgs[0].role !== 'user') return json(400, { error: 'messages' });
+          const last = msgs[msgs.length - 1];
+          const newTurn = last.role === 'user' && (typeof last.content === 'string' || !last.content.some?.(c => c.type === 'tool_result'));
+          const day = new Date().toISOString().slice(0, 10), limit = assistant.dailyLimit ?? 30;
+          const used = db.prepare('SELECT count FROM assistant_usage WHERE account=? AND day=?').get(user.id, day)?.count ?? 0;
+          if (newTurn && used >= limit) return json(429, { error: 'daily_limit', limit });
+          if (newTurn) db.prepare('INSERT INTO assistant_usage VALUES (?,?,1) ON CONFLICT(account,day) DO UPDATE SET count=count+1').run(user.id, day);
+          const state = typeof b.state === 'string' ? b.state.slice(0, 12000) : '';
+          try {
+            const r = await (assistant.fetch || fetch)('https://api.anthropic.com/v1/messages', { method: 'POST',
+              headers: { 'content-type': 'application/json', 'x-api-key': assistant.apiKey, 'anthropic-version': '2023-06-01' },
+              body: JSON.stringify({ model: assistant.model || 'claude-haiku-4-5-20251001', max_tokens: 1024,
+                system: [{ type: 'text', text: ASSISTANT_SYSTEM, cache_control: { type: 'ephemeral' } }, { type: 'text', text: `Current app state (JSON, SI units):\n${state}` }],
+                tools: ASSISTANT_TOOLS, messages: msgs }) });
+            const d = await r.json();
+            if (!r.ok) return json(502, { error: 'upstream', detail: d?.error?.type || r.status });
+            return json(200, { content: d.content, stop_reason: d.stop_reason, remaining: Math.max(0, limit - used - (newTurn ? 1 : 0)) });
+          } catch { return json(502, { error: 'upstream' }); }
         }
         if (url.pathname === '/api/profiles' && req.headers['x-account-id'] !== user.id) return json(409, { error: 'account_changed' });
         if (url.pathname === '/api/profiles' && req.method === 'GET') {

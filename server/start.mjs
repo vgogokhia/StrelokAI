@@ -11,6 +11,7 @@ if (production && !resolve(path).startsWith(resolve(process.env.RAILWAY_VOLUME_M
 mkdirSync(dirname(path), { recursive: true });
 const db = database(path);
 const server = app({ db, origin, clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET, webRoot: process.env.WEB_ROOT || '../web/dist', adminEmails: (process.env.ADMIN_EMAILS || '').split(','),
+  assistant: { apiKey: process.env.ANTHROPIC_API_KEY, model: process.env.ASSISTANT_MODEL, dailyLimit: Number(process.env.ASSISTANT_DAILY_LIMIT || 30) },
   paddle: { required: process.env.PRO_REQUIRED === '1', clientToken: process.env.PADDLE_CLIENT_TOKEN, priceId: process.env.PADDLE_PRICE_ID || 'pri_01m2pydeph8kgah2xa9b80vk0x',
     env: process.env.PADDLE_ENV || 'production', webhookSecret: process.env.PADDLE_WEBHOOK_SECRET } });
 server.listen(Number(process.env.PORT || 8080), '0.0.0.0');

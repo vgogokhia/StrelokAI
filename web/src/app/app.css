@@ -74,3 +74,5 @@ th:first-child, td:first-child { text-align: left; }
 .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 16px 16px 0 0; padding: 14px; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
   padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
 @media (min-width: 600px) { .modal-bg { align-items: center; } .modal { border-radius: 16px; } }
+
+.fab.ai { bottom: calc(126px + env(safe-area-inset-bottom)); background: var(--panel2); color: var(--text); border: 1px solid var(--border); }

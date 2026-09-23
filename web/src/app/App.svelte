@@ -7,6 +7,7 @@
   import Account from "../components/Account.svelte";
   import More from "../components/More.svelte";
   import Feedback from "../components/Feedback.svelte";
+  import Assistant from "../components/Assistant.svelte";
   import { installFeedbackFlusher } from "../lib/feedback";
 
   type Tab = "calc" | "profiles" | "dope" | "reticle" | "more";
@@ -22,9 +23,10 @@
     localStorage.setItem("bge_tab", tab);
   });
   let fbOpen = $state(false);
+  let aiOpen = $state(false);
   installFeedbackFlusher();
   $effect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") fbOpen = false; };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { fbOpen = false; aiOpen = false; } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
@@ -47,8 +49,22 @@
   {:else}<More />{/if}
 </main>
 
+{#if tab === "calc" || tab === "dope" || tab === "reticle"}
+  <button class="fab ai" title="Ask the AI assistant" aria-label="AI assistant" onclick={() => (aiOpen = true)}>🤖</button>
+{/if}
 {#if tab !== "more"}
   <button class="fab" title="Report a bug or request a feature" aria-label="Feedback" onclick={() => (fbOpen = true)}>💬</button>
+{/if}
+{#if aiOpen}
+  <div class="modal-bg" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) aiOpen = false; }}>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="AI assistant">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h2 style="margin:0">🤖 Assistant</h2>
+        <button type="button" aria-label="Close" onclick={() => (aiOpen = false)}>✕</button>
+      </div>
+      <Assistant />
+    </div>
+  </div>
 {/if}
 {#if fbOpen}
   <div class="modal-bg" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) fbOpen = false; }}>

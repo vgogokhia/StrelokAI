@@ -22,6 +22,10 @@
 <h2>⚙️ Settings</h2>
 <div class="card">
   <div class="grid2">
+    <div style="grid-column:1/3"><label class="f" for="assistant-language">Assistant suggestions language</label>
+      <select id="assistant-language" bind:value={s.assistantLanguage}>
+        <option value="en">English</option><option value="ka">ქართული</option>
+      </select></div>
     <div><label class="f">Units</label>
       <div class="seg"><button class:on={s.units === "metric"} onclick={() => (s.units = "metric")}>Metric</button><button class:on={s.units === "imperial"} onclick={() => (s.units = "imperial")}>Imperial</button></div></div>
     <div><label class="f">Angular</label>

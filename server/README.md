@@ -78,7 +78,10 @@ client polls `/api/account` and unlocks. Refunds: change the plan manually in th
 
 ## AI assistant
 
-Disabled until `ANTHROPIC_API_KEY` is set (console.anthropic.com → API keys). Optional: `ASSISTANT_MODEL`
-(default `claude-haiku-4-5-20251001`), `ASSISTANT_DAILY_LIMIT` (default 30 questions per account per day).
+Enabled by any of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`. Pick the vendor and model in
+`/admin` → 🤖 AI (model lists come live from each provider's API; choice stored in `app_settings`). With no
+choice saved, Anthropic `ASSISTANT_MODEL` (default `claude-haiku-4-5-20251001`) is used if its key exists.
+`ASSISTANT_DAILY_LIMIT` (default 30 questions per account per day). The browser always uses the Anthropic
+message format; `providers.mjs` translates for OpenAI Chat Completions and Gemini generateContent.
 The server only proxies: system prompt and tool definitions live in `app.mjs`; the browser executes the tool
 calls (`web/src/lib/assistant.ts`) with the app's own solver and keeps an undo snapshot. Signed-in users only.

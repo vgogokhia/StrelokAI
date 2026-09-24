@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { ADAPTERS, VENDORS, listModels } from './providers.mjs';
 import { randomBytes, createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { readFile, stat } from 'node:fs/promises';
@@ -28,6 +29,7 @@ export function database(path, { sessionTtl = 60 * 60 * 24 * 30 } = {}) {
     CREATE TABLE IF NOT EXISTS activity (id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT NOT NULL REFERENCES accounts(id), created INTEGER NOT NULL,
       kind TEXT NOT NULL, lat REAL, lon REAL);
     CREATE INDEX IF NOT EXISTS activity_account ON activity(account, created);
+    CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS assistant_usage (account TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY (account, day));
     CREATE TABLE IF NOT EXISTS purchases (id TEXT PRIMARY KEY, account TEXT NOT NULL REFERENCES accounts(id), created INTEGER NOT NULL,
       amount TEXT NOT NULL, currency TEXT NOT NULL, raw TEXT NOT NULL);`);
@@ -43,7 +45,10 @@ const feedbackLast = new Map(); // ip -> unix seconds (one message per minute)
 const readBody = async (req, limit) => { const chunks = []; let size = 0; for await (const c of req) { size += c.length; if (size > limit) return null; chunks.push(c); } return Buffer.concat(chunks); };
 const adminHtml = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ballistics.ge — admin</title>
 <style>body{margin:0;background:#121212;color:#e6e6e6;font:15px/1.4 system-ui,sans-serif}main{max-width:720px;margin:0 auto;padding:12px}.c{background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:12px;margin-bottom:10px}.c.read{opacity:.55}.m{color:#9a9a9a;font-size:.85rem}button{background:#242424;color:#e6e6e6;border:1px solid #333;border-radius:8px;padding:8px 12px;cursor:pointer}img{max-width:100%;border-radius:8px;margin-top:8px}pre{white-space:pre-wrap;font:inherit;margin:6px 0}a{color:#4caf50}</style>
-<main><div style="margin-bottom:10px"><button onclick="tab('fb')">📥 Feedback</button> <button onclick="tab('us')">👤 Users</button></div><section id="fb"><h2>📥 Feedback inbox</h2><div id="bar"><label><input type="checkbox" id="showread" onchange="load()"> show read</label> <button onclick="load()">↻</button></div><div id="list">Loading…</div></section><section id="us" hidden><h2>👤 Users <span class="m" id="ucount"></span></h2><div id="users">Loading…</div></section></main>
+<main><div style="margin-bottom:10px"><button onclick="tab('fb')">📥 Feedback</button> <button onclick="tab('us')">👤 Users</button> <button onclick="tab('ai')">🤖 AI</button></div><section id="fb"><h2>📥 Feedback inbox</h2><div id="bar"><label><input type="checkbox" id="showread" onchange="load()"> show read</label> <button onclick="load()">↻</button></div><div id="list">Loading…</div></section><section id="us" hidden><h2>👤 Users <span class="m" id="ucount"></span></h2><div id="users">Loading…</div></section><section id="ai" hidden><h2>🤖 AI assistant</h2><div class="c"><div class="m" id="aicur">Loading…</div>
+<p><label>Vendor<br><select id="aiv" onchange="aiModels()"></select></label></p><p><label>Model<br><select id="aim" style="max-width:100%"></select></label> <span class="m" id="aimsg"></span></p>
+<p><button onclick="aiSave()">💾 Save</button> <button onclick="aiTest()">▶ Test</button></p><div class="m" id="aiout"></div>
+<p class="m">Vendors without an API key are disabled — add ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY in Railway → Variables.</p></div></section></main>
 <script>
 const $=s=>document.querySelector(s);const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function load(){const r=await fetch('/api/admin/feedback',{cache:'no-store'});if(r.status===401){$('#list').innerHTML='Sign in with an admin Google account in the app first: <a href="/auth/google">sign in</a>';return}
@@ -56,7 +61,15 @@ d.innerHTML='<div class="m"><b>'+esc(f.kind)+'</b> · '+new Date(f.created*1000)
 +(f.read?'':'<div style="margin-top:8px"><button data-id=\"'+esc(f.id)+'\" onclick=\"mark(this.dataset.id)\">Mark read</button></div>');$('#list').appendChild(d)}}
 async function mark(id){await fetch('/api/admin/feedback/'+encodeURIComponent(id)+'/read',{method:'POST'});load()}load();
 const ts=t=>t?new Date(t*1000).toISOString().slice(0,16).replace('T',' '):'—';
-function tab(n){$('#fb').hidden=n!=='fb';$('#us').hidden=n!=='us';if(n==='us')users()}
+function tab(n){$('#fb').hidden=n!=='fb';$('#us').hidden=n!=='us';$('#ai').hidden=n!=='ai';if(n==='us')users();if(n==='ai')aiLoad()}
+let aiCur=null;async function aiLoad(){const r=await fetch('/api/admin/assistant',{cache:'no-store'});if(!r.ok){$('#aicur').textContent='Not allowed ('+r.status+')';return}const d=await r.json();aiCur=d.current;
+$('#aicur').textContent='Active: '+(d.current?d.current.vendor+' · '+d.current.model:'none — pick a model')+' · today '+d.today.n+' questions from '+d.today.users+' users';
+$('#aiv').innerHTML=d.vendors.map(v=>'<option value="'+v.id+'"'+(v.enabled?'':' disabled')+(d.current&&d.current.vendor===v.id?' selected':'')+'>'+esc(v.label)+(v.enabled?'':' — no key ('+v.env+')')+'</option>').join('');
+if(!d.current){const f=d.vendors.find(v=>v.enabled);if(f)$('#aiv').value=f.id}aiModels()}
+async function aiModels(){const v=$('#aiv').value;$('#aim').innerHTML='<option>Loading…</option>';$('#aimsg').textContent='';const r=await fetch('/api/admin/assistant/models?vendor='+encodeURIComponent(v));const d=await r.json();
+if(!r.ok){$('#aim').innerHTML='';$('#aimsg').textContent=d.error||r.status;return}$('#aim').innerHTML=d.map(m=>'<option value="'+esc(m.id)+'"'+(aiCur&&aiCur.vendor===v&&aiCur.model===m.id?' selected':'')+'>'+esc(m.name)+(m.name!==m.id?' ('+esc(m.id)+')':'')+'</option>').join('');$('#aimsg').textContent=d.length+' models'}
+async function aiSave(){const r=await fetch('/api/admin/assistant',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({vendor:$('#aiv').value,model:$('#aim').value})});$('#aiout').textContent=r.ok?'Saved ✓':'Error '+r.status;aiLoad()}
+async function aiTest(){$('#aiout').textContent='Testing…';const r=await fetch('/api/admin/assistant/test',{method:'POST'});const d=await r.json();$('#aiout').textContent=r.ok?'✓ '+d.reply:'✗ '+(d.error||r.status)}
 async function users(){const r=await fetch('/api/admin/users',{cache:'no-store'});if(!r.ok){$('#users').textContent='Not allowed ('+r.status+')';return}const list=await r.json();
 $('#ucount').textContent=list.length+' total · '+list.filter(u=>u.plan==='pro').length+' paid';$('#users').innerHTML='';
 for(const u of list){const d=document.createElement('div');d.className='c';
@@ -129,6 +142,17 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
   const ready = Boolean(clientId && clientSecret);
   // paddle: { required, clientToken, priceId, env ('sandbox'|'production'), webhookSecret }
   const proRequired = Boolean(paddle.required);
+  const aiKeys = assistant.keys || {};
+  const aiFetch = assistant.fetch || fetch;
+  const DEFAULT_MODEL = { anthropic: assistant.model || 'claude-haiku-4-5-20251001' };
+  const getSetting = k => { try { return JSON.parse(db.prepare('SELECT value FROM app_settings WHERE key=?').get(k)?.value ?? 'null'); } catch { return null; } };
+  const aiChoice = () => {
+    const saved = getSetting('assistant');
+    if (saved?.vendor && aiKeys[saved.vendor] && saved.model) return saved;
+    for (const v of ['anthropic', 'openai', 'gemini']) if (aiKeys[v] && DEFAULT_MODEL[v]) return { vendor: v, model: DEFAULT_MODEL[v] };
+    return null;
+  };
+  const modelCache = new Map();
   const hasPro = plan => plan === 'pro' || plan === 'founder';
   const verifyPaddle = (sig, raw) => {
     if (!paddle.webhookSecret || !sig) return false;
@@ -230,6 +254,30 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
             const rows = db.prepare('SELECT f.id,f.created,f.kind,f.message,f.contact,f.meta,f.ua,f.read,(f.image IS NOT NULL) AS hasImage,a.email FROM feedback f LEFT JOIN accounts a ON a.id=f.account ORDER BY f.created DESC LIMIT 500').all();
             return json(200, rows.map(r => ({ ...r, meta: JSON.parse(r.meta || '{}'), read: Boolean(r.read), hasImage: Boolean(r.hasImage) })));
           }
+          if (url.pathname === '/api/admin/assistant' && req.method === 'GET') {
+            const day = new Date().toISOString().slice(0, 10);
+            const today = db.prepare('SELECT COALESCE(SUM(count),0) AS n, COUNT(*) AS users FROM assistant_usage WHERE day=?').get(day);
+            return json(200, { vendors: Object.entries(VENDORS).map(([id, v]) => ({ id, label: v.label, env: v.env, enabled: Boolean(aiKeys[id]) })), current: aiChoice(), today });
+          }
+          if (url.pathname === '/api/admin/assistant/models' && req.method === 'GET') {
+            const v = url.searchParams.get('vendor');
+            if (!aiKeys[v]) return json(400, { error: 'no_key' });
+            const hit = modelCache.get(v); if (hit && hit.t > Date.now() - 3600e3) return json(200, hit.list);
+            try { const list = await listModels(v, aiKeys[v], aiFetch); modelCache.set(v, { t: Date.now(), list }); return json(200, list); }
+            catch (e) { return json(502, { error: String(e?.message || e).slice(0, 200) }); }
+          }
+          if (url.pathname === '/api/admin/assistant' && req.method === 'POST') {
+            let b; try { b = JSON.parse((await readBody(req, 4096)).toString('utf8')); } catch { return json(400, { error: 'json' }); }
+            if (!aiKeys[b?.vendor] || typeof b.model !== 'string' || !b.model || b.model.length > 120) return json(400, { error: 'invalid' });
+            db.prepare('INSERT INTO app_settings VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run('assistant', JSON.stringify({ vendor: b.vendor, model: b.model }));
+            return json(200, { ok: true, current: aiChoice() });
+          }
+          if (url.pathname === '/api/admin/assistant/test' && req.method === 'POST') {
+            const c = aiChoice(); if (!c) return json(400, { error: 'not_configured' });
+            try { const out = await ADAPTERS[c.vendor]({ key: aiKeys[c.vendor], model: c.model, system: 'Reply with one short sentence.', state: '', tools: ASSISTANT_TOOLS, messages: [{ role: 'user', content: 'Say hello in Georgian.' }], fetch: aiFetch });
+              return json(200, { ok: true, reply: out.content.filter(x => x.type === 'text').map(x => x.text).join(' ').slice(0, 300) }); }
+            catch (e) { return json(502, { error: String(e?.message || e).slice(0, 300) }); }
+          }
           if (url.pathname === '/api/admin/users' && req.method === 'GET') {
             const rows = db.prepare(`SELECT a.id,a.email,a.name,a.plan,a.created,a.plan_since,p.revision,p.data,
                 (SELECT COUNT(*) FROM feedback f WHERE f.account=a.id) AS feedback,
@@ -267,7 +315,7 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
           return json(200, { ok: true });
         }
         if (url.pathname === '/api/assistant' && req.method === 'POST') {
-          if (!assistant.apiKey) return json(503, { error: 'assistant_disabled' });
+          const choice = aiChoice(); if (!choice) return json(503, { error: 'assistant_disabled' });
           let b; try { b = JSON.parse((await readBody(req, 96 * 1024)).toString('utf8')); } catch { return json(400, { error: 'json' }); }
           const msgs = Array.isArray(b?.messages) ? b.messages.slice(-24) : null;
           if (!msgs?.length || msgs[0].role !== 'user') return json(400, { error: 'messages' });
@@ -279,15 +327,9 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
           if (newTurn) db.prepare('INSERT INTO assistant_usage VALUES (?,?,1) ON CONFLICT(account,day) DO UPDATE SET count=count+1').run(user.id, day);
           const state = typeof b.state === 'string' ? b.state.slice(0, 12000) : '';
           try {
-            const r = await (assistant.fetch || fetch)('https://api.anthropic.com/v1/messages', { method: 'POST',
-              headers: { 'content-type': 'application/json', 'x-api-key': assistant.apiKey, 'anthropic-version': '2023-06-01' },
-              body: JSON.stringify({ model: assistant.model || 'claude-haiku-4-5-20251001', max_tokens: 1024,
-                system: [{ type: 'text', text: ASSISTANT_SYSTEM, cache_control: { type: 'ephemeral' } }, { type: 'text', text: `Current app state (JSON, SI units):\n${state}` }],
-                tools: ASSISTANT_TOOLS.map((x, k, a) => (k === a.length - 1 ? { ...x, cache_control: { type: 'ephemeral' } } : x)), messages: msgs }) });
-            const d = await r.json();
-            if (!r.ok) return json(502, { error: 'upstream', detail: d?.error?.type || r.status });
-            return json(200, { content: d.content, stop_reason: d.stop_reason, remaining: Math.max(0, limit - used - (newTurn ? 1 : 0)) });
-          } catch { return json(502, { error: 'upstream' }); }
+            const out = await ADAPTERS[choice.vendor]({ key: aiKeys[choice.vendor], model: choice.model, system: ASSISTANT_SYSTEM, state: `Current app state (JSON, SI units):\n${state}`, tools: ASSISTANT_TOOLS, messages: msgs, fetch: aiFetch });
+            return json(200, { ...out, remaining: Math.max(0, limit - used - (newTurn ? 1 : 0)) });
+          } catch (e) { console.error('assistant', choice.vendor, choice.model, e?.message); return json(502, { error: 'upstream', detail: String(e?.message || '').slice(0, 200) }); }
         }
         if (url.pathname === '/api/profiles' && req.headers['x-account-id'] !== user.id) return json(409, { error: 'account_changed' });
         if (url.pathname === '/api/profiles' && req.method === 'GET') {

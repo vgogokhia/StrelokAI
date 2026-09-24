@@ -125,7 +125,7 @@ test('assistant proxies to Anthropic with server-side tools and enforces sign-in
   db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash('dan'), 'dan', Math.floor(Date.now()/1000)+60);
   let sent;
   const fakeFetch = async (_url, init) => { sent = JSON.parse(init.body); return { ok: true, json: async () => ({ content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }) }; };
-  const server = app({ db, origin, clientId: 'x', clientSecret: 'y', webRoot: '../web/dist', assistant: { apiKey: 'k', fetch: fakeFetch, dailyLimit: 1 } });
+  const server = app({ db, origin, clientId: 'x', clientSecret: 'y', webRoot: '../web/dist', assistant: { keys: { anthropic: 'k' }, fetch: fakeFetch, dailyLimit: 1 } });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   t.after(() => new Promise(r => server.close(() => { db.close(); r(); })));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -139,4 +139,55 @@ test('assistant proxies to Anthropic with server-side tools and enforces sign-in
   assert.ok(sent.tools.some(x => x.name === 'true_from_impact'));
   r = await fetch(`${base}/api/assistant`, { method: 'POST', body, headers: h });
   assert.equal(r.status, 429);
+});
+
+test('admin picks vendor/model; openai and gemini adapters translate tool calls both ways', async t => {
+  const db = database(':memory:');
+  db.prepare("INSERT INTO accounts (id,email,name) VALUES ('adm','boss@example.test','Boss')").run();
+  db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash('adm'), 'adm', Math.floor(Date.now()/1000)+60);
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    const body = init?.body ? JSON.parse(init.body) : null; calls.push({ url: String(url), body });
+    if (String(url).includes('api.openai.com/v1/models')) return { ok: true, json: async () => ({ data: [{ id: 'gpt-test-mini', created: 2 }, { id: 'text-embedding-x', created: 3 }, { id: 'whisper-1', created: 1 }] }) };
+    if (String(url).includes('generativelanguage') && String(url).includes('/models?')) return { ok: true, json: async () => ({ models: [{ name: 'models/gemini-test-flash', displayName: 'Gemini Test Flash', supportedGenerationMethods: ['generateContent'] }, { name: 'models/text-embedding', supportedGenerationMethods: ['embedContent'] }] }) };
+    if (String(url).includes('chat/completions')) {
+      const hasTool = body.messages.some(m => m.role === 'tool');
+      return { ok: true, json: async () => ({ choices: [{ message: hasTool ? { content: 'done' } : { content: 'Adding it.', tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'set_conditions', arguments: '{"wind_speed_mps":4}' } }] } }] }) };
+    }
+    if (String(url).includes(':generateContent')) {
+      const last = body.contents.at(-1);
+      return { ok: true, json: async () => ({ candidates: [{ content: { parts: last.parts[0].functionResponse ? [{ text: 'ok' }] : [{ functionCall: { name: 'sync_weather', args: {} }, thoughtSignature: 'SIG' }] } }] }) };
+    }
+    return { ok: false, status: 500, json: async () => ({}) };
+  };
+  const server = app({ db, origin, clientId: 'x', clientSecret: 'y', webRoot: '../web/dist', adminEmails: ['boss@example.test'], assistant: { keys: { openai: 'o', gemini: 'g' }, fetch: fakeFetch } });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  t.after(() => new Promise(r => server.close(() => { db.close(); r(); })));
+  const base = `http://127.0.0.1:${server.address().port}`, h = { Origin: origin, Cookie: 'bge_session=adm', 'content-type': 'application/json' };
+  let r = await (await fetch(`${base}/api/admin/assistant`, { headers: h })).json();
+  assert.equal(r.current, null);                                                   // no Anthropic key and nothing chosen yet
+  assert.deepEqual(r.vendors.filter(v => v.enabled).map(v => v.id), ['openai', 'gemini']);
+  assert.deepEqual((await (await fetch(`${base}/api/admin/assistant/models?vendor=openai`, { headers: h })).json()).map(m => m.id), ['gpt-test-mini']);
+  assert.deepEqual((await (await fetch(`${base}/api/admin/assistant/models?vendor=gemini`, { headers: h })).json()).map(m => m.id), ['gemini-test-flash']);
+  assert.equal((await fetch(`${base}/api/admin/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ vendor: 'anthropic', model: 'x' }) })).status, 400);
+
+  // OpenAI round trip
+  await fetch(`${base}/api/admin/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ vendor: 'openai', model: 'gpt-test-mini' }) });
+  let a = await (await fetch(`${base}/api/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ messages: [{ role: 'user', content: 'wind 4' }], state: '{}' }) })).json();
+  assert.equal(a.stop_reason, 'tool_use'); assert.deepEqual(a.content[1], { type: 'tool_use', id: 'call_1', name: 'set_conditions', input: { wind_speed_mps: 4 } });
+  const hist = [{ role: 'user', content: 'wind 4' }, { role: 'assistant', content: a.content }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'call_1', content: '{"ok":true}' }] }];
+  a = await (await fetch(`${base}/api/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ messages: hist, state: '{}' }) })).json();
+  assert.equal(a.content[0].text, 'done');
+  const sent = calls.filter(c => c.url.includes('chat/completions')).at(-1).body;
+  assert.equal(sent.model, 'gpt-test-mini'); assert.equal(sent.messages.at(-1).role, 'tool'); assert.equal(sent.messages.at(-2).tool_calls[0].function.name, 'set_conditions');
+
+  // Gemini round trip keeps the thought signature and maps the function name back
+  await fetch(`${base}/api/admin/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ vendor: 'gemini', model: 'gemini-test-flash' }) });
+  a = await (await fetch(`${base}/api/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ messages: [{ role: 'user', content: 'weather' }], state: '{}' }) })).json();
+  const tu = a.content[0]; assert.equal(tu.name, 'sync_weather'); assert.equal(tu._sig, 'SIG');
+  a = await (await fetch(`${base}/api/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ messages: [{ role: 'user', content: 'weather' }, { role: 'assistant', content: [tu] }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: tu.id, content: '{"ok":true}' }] }], state: '{}' }) })).json();
+  assert.equal(a.content[0].text, 'ok');
+  const g = calls.filter(c => c.url.includes(':generateContent')).at(-1).body;
+  assert.equal(g.contents[1].parts[0].thoughtSignature, 'SIG'); assert.equal(g.contents[2].parts[0].functionResponse.name, 'sync_weather');
+  assert.ok(!g.tools[0].functionDeclarations.find(f => f.name === 'sync_weather').parameters);
 });

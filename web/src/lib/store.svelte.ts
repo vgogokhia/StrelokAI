@@ -55,6 +55,7 @@ export interface Conditions {
 }
 
 export interface Settings {
+  assistantLanguage?: "en" | "ka";
   units: UnitSystem;
   angular: Angular;
   click: string;
@@ -114,7 +115,7 @@ class Store {
     humidityPct: 50, altitudeM: 0, lat: 41.7151, lon: 44.8271, shotAngleDeg: 0, cantAngleDeg: 0, targetSpeedKmh: 0, targetDirDeg: 90,
   });
   settings = $state<Settings>({
-    units: "metric", angular: "MRAD", click: "0.1 MRAD", reticle: "MIL-Dot", reticleFp: "FFP",
+    assistantLanguage: "en", units: "metric", angular: "MRAD", click: "0.1 MRAD", reticle: "MIL-Dot", reticleFp: "FFP",
     reticleCalMag: 10, reticleCurMag: 10, scopeMinMag: 3, scopeMaxMag: 15, turretPerRev: 10, wez: { ...DEFAULT_WEZ },
   });
   recent = $state<number[]>([]);

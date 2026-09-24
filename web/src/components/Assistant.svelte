@@ -1,5 +1,6 @@
 <script lang="ts">
   import { snapshotState, runTool, previewTool, takeUndo, applyUndo, READ_ONLY } from "../lib/assistant";
+  import { store } from "../lib/store.svelte";
   import { billing } from "../lib/billing.svelte";
   import { compressImage } from "../lib/feedback";
 
@@ -25,7 +26,11 @@
     let cur = -1; h.forEach((m, k) => { if (m.role === "user" && (typeof m.content === "string" || !m.content.some((b) => b.type === "tool_result"))) cur = k; });
     return h.map((m, k) => k === cur || typeof m.content === "string" ? m : { ...m, content: m.content.map((b) => (b.type === "image" ? { type: "text", text: "[photo shown earlier]" } : b)) });
   }
-  const EXAMPLES = ["📷 Photo of my target — analyse the group", "📷 Photo of the ammo box — add this load", "AR-10 მაქვს .308, ტყვია Fiocchi HPBT 175 გრ — დამიმატე", "600 მ-ზე აპის მიხედვით დავაყენე და 15 სმ-ით დაბლა მოხვდა", "ქარი 3 საათიდან, 4 მ/წმ, 450 მეტრი", "ჩემი სკოუპი Vortex Viper PST 5-25, EBR-7C, FFP"];
+  const EXAMPLES = {
+    en: ["📷 Photo of my target — analyse the group", "📷 Photo of the ammo box — add this load", "I have an AR-10 in .308 with Fiocchi HPBT 175 gr — add it", "At 600 m I used the app’s settings and hit 15 cm low", "Wind from 3 o’clock, 4 m/s, 450 metres", "My scope is a Vortex Viper PST 5-25, EBR-7C, FFP"],
+    ka: ["📷 ჩემი სამიზნის ფოტო — გააანალიზე ჯგუფი", "📷 ვაზნის ყუთის ფოტო — დაამატე ეს ვაზნა", "AR-10 მაქვს .308, ტყვია Fiocchi HPBT 175 გრ — დამიმატე", "600 მ-ზე აპის მიხედვით დავაყენე და 15 სმ-ით დაბლა მოხვდა", "ქარი 3 საათიდან, 4 მ/წმ, 450 მეტრი", "ჩემი სკოუპი Vortex Viper PST 5-25, EBR-7C, FFP"],
+  };
+  const examples = $derived(EXAMPLES[store.settings.assistantLanguage === "ka" ? "ka" : "en"]);
 
   $effect(() => { lines.length; queueMicrotask(() => listEl?.scrollTo({ top: listEl.scrollHeight, behavior: "smooth" })); });
 
@@ -85,7 +90,7 @@
 <div class="muted" style="margin-bottom:8px">Tell me what happened or what to set, or 📷 send a photo of your target, ammo box, rifle or scope — I'll set up the calculator. You approve every change.</div>
 <div bind:this={listEl} class="chat">
   {#if !lines.length}
-    <div class="chips" style="flex-wrap:wrap">{#each EXAMPLES as ex}<button class="ex" onclick={() => (ex.startsWith("📷") ? fileEl?.click() : send(ex))}>{ex}</button>{/each}</div>
+    <div class="chips" style="flex-wrap:wrap">{#each examples as ex}<button class="ex" onclick={() => (ex.startsWith("📷") ? fileEl?.click() : send(ex))}>{ex}</button>{/each}</div>
   {/if}
   {#each lines as l}
     {#if l.who === "ask"}

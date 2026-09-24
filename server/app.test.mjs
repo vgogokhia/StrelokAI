@@ -191,3 +191,29 @@ test('admin picks vendor/model; openai and gemini adapters translate tool calls 
   assert.equal(g.contents[1].parts[0].thoughtSignature, 'SIG'); assert.equal(g.contents[2].parts[0].functionResponse.name, 'sync_weather');
   assert.ok(!g.tools[0].functionDeclarations.find(f => f.name === 'sync_weather').parameters);
 });
+
+test('photos are validated and translated for each vendor', async t => {
+  const { ADAPTERS } = await import('./providers.mjs');
+  const img = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'AAAA' } };
+  const msgs = [{ role: 'user', content: [img, { type: 'text', text: 'what ammo is this' }] }];
+  let body;
+  const f = async (_u, init) => { body = JSON.parse(init.body); return { ok: true, json: async () => ({ choices: [{ message: { content: 'x' } }], candidates: [{ content: { parts: [{ text: 'x' }] } }], content: [{ type: 'text', text: 'x' }] }) }; };
+  await ADAPTERS.openai({ key: 'k', model: 'm', system: 's', state: '', tools: [], messages: msgs, fetch: f });
+  assert.equal(body.messages[1].content[0].image_url.url, 'data:image/jpeg;base64,AAAA');
+  await ADAPTERS.gemini({ key: 'k', model: 'm', system: 's', state: '', tools: [], messages: msgs, fetch: f });
+  assert.deepEqual(body.contents[0].parts[0], { inlineData: { mimeType: 'image/jpeg', data: 'AAAA' } });
+  await ADAPTERS.anthropic({ key: 'k', model: 'm', system: 's', state: '', tools: [{ name: 'a', input_schema: {} }], messages: msgs, fetch: f });
+  assert.equal(body.messages[0].content[0].type, 'image');
+
+  const db = database(':memory:');
+  db.prepare("INSERT INTO accounts (id,email,name) VALUES ('e','e@x.test','E')").run();
+  db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash('e'), 'e', Math.floor(Date.now()/1000)+60);
+  const server = app({ db, origin, clientId: 'x', clientSecret: 'y', webRoot: '../web/dist', assistant: { keys: { anthropic: 'k' }, fetch: f } });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  t.after(() => new Promise(r => server.close(() => { db.close(); r(); })));
+  const base = `http://127.0.0.1:${server.address().port}`, h = { Origin: origin, Cookie: 'bge_session=e' };
+  const bad = { type: 'image', source: { type: 'base64', media_type: 'image/gif', data: 'AAAA' } };
+  assert.equal((await fetch(`${base}/api/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ messages: [{ role: 'user', content: [bad] }] }) })).status, 400);
+  assert.equal((await fetch(`${base}/api/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ messages: [{ role: 'user', content: [img, img, img, img] }] }) })).status, 400);
+  assert.equal((await fetch(`${base}/api/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ messages: msgs }) })).status, 200);
+});

@@ -33,8 +33,10 @@ async function openai({ key, model, system, state, tools, messages, fetch }) {
       out.push({ role: 'assistant', content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
     } else {
       for (const b of bs.filter(b => b.type === 'tool_result')) out.push({ role: 'tool', tool_call_id: b.tool_use_id, content: toolText(b.content) });
+      const imgs = bs.filter(b => b.type === 'image' && b.source?.type === 'base64');
       const text = bs.filter(b => b.type === 'text').map(b => b.text).join('\n');
-      if (text) out.push({ role: 'user', content: text });
+      if (imgs.length) out.push({ role: 'user', content: [...imgs.map(b => ({ type: 'image_url', image_url: { url: `data:${b.source.media_type};base64,${b.source.data}` } })), ...(text ? [{ type: 'text', text }] : [])] });
+      else if (text) out.push({ role: 'user', content: text });
     }
   }
   const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST',
@@ -58,6 +60,7 @@ async function gemini({ key, model, system, state, tools, messages, fetch }) {
     const parts = [];
     for (const b of blocks(m.content)) {
       if (b.type === 'text' && b.text) parts.push({ text: b.text });
+      else if (b.type === 'image' && b.source?.type === 'base64') parts.push({ inlineData: { mimeType: b.source.media_type, data: b.source.data } });
       else if (b.type === 'tool_use') { names.set(b.id, b.name); parts.push({ functionCall: { name: b.name, args: b.input ?? {} }, ...(b._sig ? { thoughtSignature: b._sig } : {}) }); }
       else if (b.type === 'tool_result') { let resp; try { resp = JSON.parse(toolText(b.content)); } catch { resp = { result: toolText(b.content) }; } parts.push({ functionResponse: { name: names.get(b.tool_use_id) || 'tool', response: resp } }); }
     }

@@ -24,6 +24,11 @@
   });
   let fbOpen = $state(false);
   let aiOpen = $state(false);
+  // Ad/landing links use ballistics.ge/?ai ; after Google sign-in we come back to "/" and reopen the chat.
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.has("ai") || localStorage.getItem("bge_open_ai")) { aiOpen = true; tab = "calc"; localStorage.removeItem("bge_open_ai"); if (q.has("ai")) history.replaceState(null, "", location.pathname); }
+  } catch { /* ignore */ }
   installFeedbackFlusher();
   $effect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { fbOpen = false; aiOpen = false; } };

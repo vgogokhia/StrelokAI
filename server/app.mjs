@@ -95,6 +95,14 @@ What you can do:
 - Scope/reticle: set_reticle (reticle from the options list, FFP/SFP, magnification range, true-at power). Display: set_settings (metric/imperial, MRAD/MOA, click value).
 - Hit probability settings: set_hit_probability (group size, MV SD, wind-call error, target size).
 - Questions ("what's my hold at 700?", "why is my BC G7?") → answer from the state without tools.
+
+Photos (the user may attach up to 3):
+- Ammo box / cartridge: read brand, product line, calibre, bullet weight and type, and the printed muzzle velocity (convert fps → m/s, ×0.3048). Then search_library and create_ammo (library_id of the same bullet if found, the box's MV, a name like "Fiocchi Exacta 175 HPBT"). Say which values you read from the box.
+- Rifle: identify make/model/calibre only from what is visible (markings on the barrel or receiver are best). State your confidence. Propose create_rifle with the calibre and a typical twist for that model; ask the user to confirm the calibre if it is not legible.
+- Scope: identify make/model and magnification range from markings; choose the closest reticle from state.settings.reticle.options and FFP/SFP, then set_reticle. If the reticle itself is not visible, ask which reticle it has.
+- Target with bullet holes: you need the range, the scale and where they aimed. Use a known size in the photo (grid squares, ring spacing, target diameter) — if there is none, ask for one. Estimate the group centre offset from the aiming point in cm (+ high / + right) and the group's extreme spread in cm and MOA (MOA = cm / (range_m × 0.0291)). Then, depending on the situation, propose set_zero_offset (at zero range), true_from_impact (vertical miss at a longer range after dialling the app's solution), or set_hit_probability group_moa (to record their real group size). Be honest about uncertainty from photo angle and resolution; round to whole cm.
+- Anything else shooting-related (a Kestrel screen, a DOPE card, a range card) → read the numbers and propose the matching changes.
+Never identify people in photos; ignore faces.
 Rules: never invent measured values — if unknown, ask one short question or use a clearly-labelled default. Keep changes to what the user asked for. Suggest confirming on paper when MV changes > 30 m/s or BC > 15%.
 Respect the plan limits in state.plan. Nothing illegal or unsafe.
 Sign conventions: vertical + = high, horizontal + = right, relative to the point of aim. All values SI (m, m/s, °C, mbar, cm, grains, inches for bullet dimensions and twist).`;
@@ -316,9 +324,13 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
         }
         if (url.pathname === '/api/assistant' && req.method === 'POST') {
           const choice = aiChoice(); if (!choice) return json(503, { error: 'assistant_disabled' });
-          let b; try { b = JSON.parse((await readBody(req, 96 * 1024)).toString('utf8')); } catch { return json(400, { error: 'json' }); }
+          let b; try { b = JSON.parse((await readBody(req, 6 * 1024 * 1024)).toString('utf8')); } catch { return json(400, { error: 'json' }); }
           const msgs = Array.isArray(b?.messages) ? b.messages.slice(-24) : null;
           if (!msgs?.length || msgs[0].role !== 'user') return json(400, { error: 'messages' });
+          // Photos: at most 3 per request, JPEG/PNG/WebP, ≤ 1.5 MB each (the client downsizes to ~1600 px).
+          const images = msgs.flatMap(m => Array.isArray(m.content) ? m.content.filter(c => c?.type === 'image') : []);
+          if (images.length > 3 || images.some(c => c.source?.type !== 'base64' || !['image/jpeg', 'image/png', 'image/webp'].includes(c.source.media_type) || typeof c.source.data !== 'string' || c.source.data.length > 2_000_000))
+            return json(400, { error: 'images' });
           const last = msgs[msgs.length - 1];
           const newTurn = last.role === 'user' && (typeof last.content === 'string' || !last.content.some?.(c => c.type === 'tool_result'));
           const day = new Date().toISOString().slice(0, 10), limit = assistant.dailyLimit ?? 30;

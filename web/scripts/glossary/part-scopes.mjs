@@ -23,7 +23,7 @@ export default ({ F, n, table }) => {
 </ol>` },
     { h: "Example: what a calculator gives you", html: `<p>For a .308 Winchester with 175 gr Sierra MatchKings at 2600 fps, zeroed at 100 yards, our solver gives these come-ups at sea level:</p>
 ${table(["Distance", "Drop", "Come-up", "10 mph wind"], [[ "500 yd", `${n(-r5.dropIn, 0)} in`, `${n(-r5.mil)} MIL / ${n(-r5.moa)} MOA`, `${n(r5.windMil)} MIL`], ["1000 yd", `${n(-r10.dropIn, 0)} in`, `${n(-r10.mil)} MIL / ${n(-r10.moa)} MOA`, `${n(Math.abs(r10.windMil))} MIL`]])}
-<p>You dial the come-up on the elevation turret and either dial or hold the wind correction with your reticle. See the full <a href="/glossary/308-ballistics-chart/">.308 ballistics chart</a>.</p>` },
+<p>You dial the come-up on the elevation turret and either dial or hold the wind correction with your reticle. See how the <a href="/glossary/308-ballistics-chart/">.308 trajectory</a> develops out to 1000 yards.</p>` },
     { h: "How to get accurate results", html: `<p>Start with measured velocity and the published BC. Shoot at a known distance around 500–600 yards and compare the real impact with the prediction. If the calculator is consistently off, <a href="/glossary/truing/">true</a> the muzzle velocity. Then check again at long range, near where the bullet slows toward the <a href="/glossary/transonic/">transonic</a> zone. Once the numbers match, print a <a href="/glossary/dope-card/">DOPE card</a> as a backup for when the phone battery dies.</p>` },
   ],
   faq: [

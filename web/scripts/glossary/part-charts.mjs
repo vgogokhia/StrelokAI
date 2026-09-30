@@ -14,8 +14,8 @@ export default ({ F, n, table, dropTable }) => {
   answer: "<b>Bullet drop</b> is how far the bullet falls below your line of sight at a given distance. With a 100-yard zero, a .308 175 gr load drops about " + n(-a5.dropIn, 0) + " inches at 500 yards (" + n(-a5.mil) + " MIL), a 6.5 Creedmoor 140 gr about " + n(-c5.dropIn, 0) + " inches, and a .22 LR with a 50-yard zero about " + n(-r1.dropIn, 0) + " inches at 100 yards.",
   sections: [
     { h: "How to read these charts", html: `<p><b>Drop</b> is measured from the line of sight, so it is zero at the zero distance and slightly positive just before it. <b>Up</b> is the elevation to dial or hold, in MOA and MIL. <b>Wind</b> is the drift for a full-value 10 mph crosswind; halve it for 5 mph, double it for 20. These are reference numbers: your rifle's velocity and your altitude will change them, so use the <a href="/">calculator</a> for your own load.</p>` },
-    { h: ".308 Winchester, 175 gr", html: dropTable("308") + `<p>Full details: <a href="/glossary/308-ballistics-chart/">.308 ballistics chart</a>.</p>` },
-    { h: "6.5 Creedmoor, 140 gr", html: dropTable("65cm") + `<p>Full details: <a href="/glossary/6-5-creedmoor-ballistics-chart/">6.5 Creedmoor ballistics chart</a>.</p>` },
+    { h: ".308 Winchester, 175 gr", html: dropTable("308") + `<p>Explained in detail: <a href="/glossary/308-ballistics-chart/">.308 trajectory</a>. All .308 loads: <a href="/ballistics/308-win/">.308 Win charts</a>.</p>` },
+    { h: "6.5 Creedmoor, 140 gr", html: dropTable("65cm") + `<p>Compared with .308: <a href="/glossary/6-5-creedmoor-ballistics-chart/">6.5 Creedmoor vs .308</a>. All loads: <a href="/ballistics/6-5-creedmoor/">6.5 Creedmoor charts</a>.</p>` },
     { h: ".223 Remington, 55 gr", html: dropTable("223") + `<p>The light 55 gr bullet starts fast but loses speed quickly; it has more wind drift at 500 yards than the .308 despite starting 640 fps faster. The 2.6" sight height is typical of an AR-15.</p>` },
     { h: ".22 LR, 40 gr standard velocity", html: dropTable("22lr") + `<p>More in <a href="/glossary/22lr-bullet-drop/">.22 LR bullet drop</a>.</p>` },
   ],
@@ -29,14 +29,14 @@ export default ({ F, n, table, dropTable }) => {
   cta: "Make a drop chart for your own load",
 },
 {
-  slug: "308-ballistics-chart", cat: "Ballistic charts", term: ".308 ballistics chart",
-  h1: ".308 ballistics chart: drop, wind drift and energy to 1000 yards",
-  title: ".308 Ballistics Chart: Drop and Wind to 1000 Yards",
-  description: ".308 Win ballistics chart for the 175 gr Sierra MatchKing: drop in inches, MOA and MIL, 10 mph wind drift, velocity and energy from 100 to 1000 yards.",
-  short: "drop, come-ups, wind and energy for .308 175 gr out to 1000 yards.",
+  slug: "308-ballistics-chart", cat: "Ballistic charts", term: ".308 trajectory",
+  h1: ".308 trajectory explained: drop, wind and the transonic limit",
+  title: ".308 Trajectory Explained: Drop, Wind and Effective Range",
+  description: "How a .308 Winchester bullet flies to 1000 yards: drop and come-ups, wind drift, when it goes transonic, and what that means for effective range.",
+  short: "how a .308 bullet drops, drifts and slows out to 1000 yards.",
   answer: "A .308 Winchester 175 gr Sierra MatchKing at 2600 fps with a 100-yard zero needs about <b>" + n(-a5.mil) + " MIL (" + n(-a5.moa) + " MOA) at 500 yards</b> and <b>" + n(-a10.mil) + " MIL (" + n(-a10.moa) + " MOA) at 1000 yards</b> at sea level. A 10 mph crosswind moves it about " + n(a5.windIn, 0) + " inches at 500 and " + n(a10.windIn, 0) + " inches at 1000 yards.",
   sections: [
-    { h: "Chart", html: dropTable("308") },
+    { h: "Worked example: 175 gr SMK to 1000 yards", html: dropTable("308") + `<p>Drop and wind tables for every other .308 load in our library are on the <a href="/ballistics/308-win/">.308 Win ballistics charts</a> page.</p>` },
     { h: "What the numbers tell you", html: `<ul><li><b>Out to 300 yards</b> the .308 is easy: ${n(-a3.mil)} MIL up and under 7 inches of drift in a 10 mph wind.</li>
 <li><b>500–700 yards</b> is where wind calls start to dominate. An error of 3 mph in your wind estimate at 700 yards is about ${n(at("308", 700).windIn * 0.3, 0)} inches.</li>
 <li><b>Past 800 yards</b> the 175 gr bullet approaches the speed of sound (Mach 1.2 at about ${Math.round(F.trans["308"].m12)} yards, Mach 1.0 at ${Math.round(F.trans["308"].m10)} yards at sea level). Accuracy and prediction quality drop. See <a href="/glossary/transonic/">transonic</a>.</li>
@@ -50,17 +50,17 @@ export default ({ F, n, table, dropTable }) => {
     { q: "How much energy does a .308 have at 500 yards?", a: `About ${Math.round(a5.ftlb)} ft·lb for a 175 gr bullet starting at 2600 fps.` },
   ],
   related: ["6-5-creedmoor-ballistics-chart", "bullet-drop-chart", "wind-drift", "transonic", "zero-distance"],
-  cta: "Make this chart for your own .308",
+  cta: "Calculate your own .308 trajectory",
 },
 {
-  slug: "6-5-creedmoor-ballistics-chart", cat: "Ballistic charts", term: "6.5 Creedmoor ballistics chart",
-  h1: "6.5 Creedmoor ballistics chart: drop and wind to 1000 yards",
-  title: "6.5 Creedmoor Ballistics Chart: Drop and Wind to 1000 Yards",
-  description: "6.5 Creedmoor ballistics chart for 140 gr ELD Match: drop in inches, MOA and MIL, 10 mph wind drift, velocity and energy to 1000 yards, compared with .308.",
-  short: "drop, come-ups and wind for 6.5 Creedmoor 140 gr, compared with .308.",
+  slug: "6-5-creedmoor-ballistics-chart", cat: "Ballistic charts", term: "6.5 Creedmoor vs .308",
+  h1: "6.5 Creedmoor vs .308: trajectory and wind compared",
+  title: "6.5 Creedmoor vs .308: Drop and Wind Compared to 1000 Yards",
+  description: "6.5 Creedmoor vs .308 Winchester with real numbers: drop, wind drift, velocity and energy to 1000 yards, transonic range, recoil and barrel life.",
+  short: "the two most popular long-range cartridges compared, with real numbers.",
   answer: "A 6.5 Creedmoor 140 gr ELD Match at 2710 fps with a 100-yard zero needs about <b>" + n(-c5.mil) + " MIL (" + n(-c5.moa) + " MOA) at 500 yards</b> and <b>" + n(-c10.mil) + " MIL (" + n(-c10.moa) + " MOA) at 1000 yards</b> at sea level. A 10 mph crosswind moves it about " + n(c10.windIn, 0) + " inches at 1000 yards, against " + n(a10.windIn, 0) + " inches for a .308 175 gr.",
   sections: [
-    { h: "Chart", html: dropTable("65cm") },
+    { h: "6.5 Creedmoor 140 gr ELD Match to 1000 yards", html: dropTable("65cm") + `<p>Tables for every 6.5 Creedmoor load in our library: <a href="/ballistics/6-5-creedmoor/">6.5 Creedmoor ballistics charts</a>.</p>` },
     { h: "6.5 Creedmoor vs .308", html: `${table(["At 1000 yd", "6.5 CM 140 gr", ".308 175 gr"], [["Come-up", `${n(-c10.mil)} MIL`, `${n(-a10.mil)} MIL`], ["Wind drift, 10 mph", `${n(c10.windIn, 0)} in`, `${n(a10.windIn, 0)} in`], ["Velocity", `${Math.round(c10.fps)} fps`, `${Math.round(a10.fps)} fps`], ["Energy", `${Math.round(c10.ftlb)} ft·lb`, `${Math.round(a10.ftlb)} ft·lb`]], "Sea level, standard atmosphere. Calculated with the ballistics.ge solver.")}
 <p>The 6.5 mm bullet's higher <a href="/glossary/ballistic-coefficient/">ballistic coefficient</a> (G7 0.326 vs 0.243) means it drifts about ${Math.round((1 - c10.windIn / a10.windIn) * 100)}% less at 1000 yards, stays supersonic past ${Math.round(F.trans["65cm"].m12 / 100) * 100} yards, and recoils less. The .308 has more barrel life and a wider range of cheap ammunition.</p>` },
     { h: "Barrel and twist", html: `<p>Factory 6.5 Creedmoor rifles use a 1:8 twist (sometimes 1:7.5), needed for long 140–147 gr bullets. Our solver gives a Miller <a href="/glossary/twist-rate/">stability factor</a> of ${n(F.sg65, 2)} for the 140 gr ELD Match in 1:8 at sea level. Box velocities come from 24-inch test barrels; from a 20–22 inch barrel expect 2600–2700 fps, and <a href="/glossary/muzzle-velocity/">measure it</a>.</p>` },
@@ -74,17 +74,17 @@ export default ({ F, n, table, dropTable }) => {
     { q: "What twist rate does 6.5 Creedmoor need?", a: "A 1:8 twist stabilizes the popular 140–147 gr bullets. Very long bullets such as the 156 gr Berger EOL prefer 1:7.5 or 1:7." },
   ],
   related: ["308-ballistics-chart", "ballistic-coefficient", "transonic", "bullet-drop-chart"],
-  cta: "Make this chart for your own 6.5 Creedmoor",
+  cta: "Compare your own loads in the calculator",
 },
 {
   slug: "22lr-bullet-drop", cat: "Ballistic charts", term: ".22 LR bullet drop",
-  h1: ".22 LR bullet drop chart and best zero distance",
-  title: ".22 LR Bullet Drop Chart: 25 to 300 Yards and Best Zero",
+  h1: ".22 LR bullet drop and the best zero distance",
+  title: ".22 LR Bullet Drop and Best Zero: 50 vs 100 Yards",
   description: ".22 LR bullet drop chart from 25 to 300 yards in inches, MOA and MIL, wind drift, and the best zero distance for plinking, hunting and rimfire precision.",
   short: "rimfire drop and wind from 25 to 300 yards, and which zero to choose.",
   answer: "A standard-velocity .22 LR (40 gr at 1070 fps) zeroed at 50 yards drops about <b>" + n(-r1.dropIn, 0) + " inches at 100 yards</b> (" + n(-r1.mil) + " MIL) and <b>" + n(-r2.dropIn, 0) + " inches at 200 yards</b> (" + n(-r2.mil) + " MIL). A 10 mph crosswind moves it about " + n(r1.windIn, 1) + " inches at 100 yards. A 50-yard zero is the most common choice.",
   sections: [
-    { h: "Chart", html: dropTable("22lr") },
+    { h: "Drop with a 50-yard zero", html: dropTable("22lr") + `<p>Drop tables for each .22 LR brand in our library: <a href="/ballistics/22-lr/">.22 LR ballistics charts</a>.</p>` },
     { h: "Why .22 LR drops so fast", html: `<p>The .22 LR bullet is light, short and blunt, with a G1 <a href="/glossary/ballistic-coefficient/">BC</a> around 0.13–0.14, and it starts slow. It spends about ${n(r1.tof, 2)} seconds reaching 100 yards, more than twice as long as a .308, so gravity and wind have more time to act. That makes rimfire an excellent, cheap way to learn wind reading: the drift you see at 100 yards with a .22 is similar to what a .308 shows at around 300–400 yards.</p>` },
     { h: "Which zero to choose", html: `<ul><li><b>50 yards</b>: the most common choice. The bullet stays within about ½ inch of the aim point from 25 to about 60 yards, ideal for plinking and small game.</li>
 <li><b>25 yards</b>: for indoor ranges and airgun-like distances; the bullet is then high at 50–75 yards.</li>

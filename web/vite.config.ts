@@ -31,7 +31,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,json,woff2}"],
-        globIgnores: ["ballistics/**", "glossary/**", "ka/**", "pricing/**", "terms/**", "privacy/**", "refunds/**"],
+        globIgnores: ["brand/og-*.png", "ballistics/**", "glossary/**", "ka/**", "pricing/**", "terms/**", "privacy/**", "refunds/**"],
         navigateFallback: "/index.html",
         // The app shell answers only "/" (with any query). Every other page is a real static file.
         navigateFallbackAllowlist: [/^\/(?:index\.html)?(?:\?.*)?$/],

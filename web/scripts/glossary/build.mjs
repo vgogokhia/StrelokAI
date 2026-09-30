@@ -82,7 +82,7 @@ const alternates = (slug) => {
 
 const head = (lang, { title, description, href, type, ld, slug }) => `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title><meta name="description" content="${esc(description)}"><link rel="canonical" href="${href}">${alternates(slug)}
-<meta property="og:type" content="${type}"><meta property="og:site_name" content="ballistics.ge"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${href}"><meta property="og:image" content="${SITE}/brand/ballistics-logo.png"><meta property="og:locale" content="${L[lang].locale}"><meta name="twitter:card" content="summary">
+<meta property="og:type" content="${type}"><meta property="og:site_name" content="ballistics.ge"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${href}"><meta property="og:image" content="${SITE}/brand/og-${lang}.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:locale" content="${L[lang].locale}"><meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="/blog/blog.css"><link rel="stylesheet" href="/glossary/glossary.css">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/ballistics-b-32.png"><link rel="apple-touch-icon" sizes="180x180" href="/icons/ballistics-b-180.png">
 <script type="application/ld+json">${JSON.stringify(ld)}</script></head><body><a class="skip" href="#content">${L[lang].skip}</a>
@@ -97,7 +97,7 @@ function page(lang, t) {
   const cta = `<p class="cta"><a class="btn" href="/">${t.cta ?? S.cta} →</a><br><span class="meta">${S.ctaNote}</span></p>`;
   const related = `<nav aria-label="${S.related}"><h2>${S.related}</h2><ul>${t.related.map((r) => `<li><a href="/${S.dir}${r}/">${by[r].h1}</a>: ${by[r].short}</li>`).join("")}</ul></nav>`;
   const ld = { "@context": "https://schema.org", "@graph": [
-    { "@type": "Article", headline: t.h1, description: t.description, inLanguage: lang, datePublished: PUBLISHED[lang], dateModified: UPDATED[lang], mainEntityOfPage: href, image: `${SITE}/brand/ballistics-logo.png`, author: org, publisher: org, about: { "@type": "DefinedTerm", name: t.term, description: strip(t.answer), inDefinedTermSet: url(lang) } },
+    { "@type": "Article", headline: t.h1, description: t.description, inLanguage: lang, datePublished: PUBLISHED[lang], dateModified: UPDATED[lang], mainEntityOfPage: href, image: `${SITE}/brand/og-${lang}.png`, author: org, publisher: org, about: { "@type": "DefinedTerm", name: t.term, description: strip(t.answer), inDefinedTermSet: url(lang) } },
     { "@type": "FAQPage", inLanguage: lang, mainEntity: t.faq.map((f) => ({ "@type": "Question", name: strip(f.q), acceptedAnswer: { "@type": "Answer", text: strip(f.a) } })) },
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: S.home, item: `${SITE}/` }, { "@type": "ListItem", position: 2, name: S.glossary, item: url(lang) }, { "@type": "ListItem", position: 3, name: t.h1, item: href }] },
   ] };

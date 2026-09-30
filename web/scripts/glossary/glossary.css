@@ -1,0 +1,6 @@
+.answer{border-left:4px solid #99d284;background:#1c2419;padding:6px 20px;margin:12px 0 8px;font-size:19px}
+.tbl{margin:20px 0}.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:15px;line-height:1.5}
+th,td{padding:6px 10px;border-bottom:1px solid #343434;text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}
+th{color:#b9b9b9;font-weight:600}figcaption{font-size:14px;color:#b9b9b9;margin-top:8px}
+.cta{margin:32px 0;text-align:center}.btn{display:inline-block;background:#4caf50;color:#000;font-weight:700;text-decoration:none;padding:12px 22px;border-radius:10px}.btn:hover{color:#000;background:#66c26a}
+code{background:#1e1e1e;padding:1px 6px;border-radius:4px}.formula{background:#1a1a1a;border:1px solid #343434;border-radius:8px;padding:10px 16px;font-family:ui-monospace,monospace;font-size:16px;overflow-x:auto}

@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ballistics.ge — offline-capable ballistic calculator (PWA)",
+  "description": "ballistics.ge \u2014 offline-capable ballistic calculator (PWA)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "sync-data": "cp ../data/bullet_library.json src/data/bullets.json"
+    "sync-data": "cp ../data/bullet_library.json src/data/bullets.json",
+    "glossary": "node scripts/glossary/build.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.0",

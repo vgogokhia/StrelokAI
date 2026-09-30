@@ -165,11 +165,11 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
       if (!['GET', 'HEAD'].includes(req.method)) return json(405, { error: 'method' });
       if (url.pathname === '/healthz') return json(200, { ok: true });
       if (url.pathname === '/admin') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(adminHtml); }
-      if (url.pathname === '/blog') return redirect('/blog/');
+      if (url.pathname === '/blog' || url.pathname === '/glossary') return redirect(url.pathname + '/');
       let file = resolve(root, '.' + decodeURIComponent(url.pathname));
       if (file !== root && !file.startsWith(root + sep)) return json(404, { error: 'not_found' });
       try { if ((await stat(file)).isDirectory()) file = resolve(file, 'index.html'); await stat(file); }
-      catch { if (url.pathname.startsWith('/blog/') || extname(file)) return json(404, { error: 'not_found' }); file = resolve(root, 'index.html'); }
+      catch { if (url.pathname.startsWith('/blog/') || url.pathname.startsWith('/glossary/') || extname(file)) return json(404, { error: 'not_found' }); file = resolve(root, 'index.html'); }
       const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain', '.xml': 'application/xml', '.woff2': 'font/woff2' };
       res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': file.includes(`${sep}assets${sep}`) ? 'public,max-age=31536000,immutable' : 'no-cache' });
       res.end(req.method === 'HEAD' ? undefined : await readFile(file));

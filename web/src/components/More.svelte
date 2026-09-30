@@ -79,8 +79,11 @@
   {#if fbNote}<div class="note {fbNote.kind}">{fbNote.text}</div>{/if}
 </div>
 
-<h2>Blog (Georgian)</h2>
-<div class="card"><a href="/blog/" style="color:var(--green)">Firearm storage, ammunition transport and FAQs</a></div>
+<h2>📖 Learn</h2>
+<div class="card">
+  <p style="margin:0 0 6px"><a href="/glossary/" style="color:var(--green)">Shooting glossary</a>: MIL vs MOA, FFP vs SFP, BC, zeroing, wind, drop charts</p>
+  <p style="margin:0"><a href="/blog/" hreflang="ka" style="color:var(--green)">Blog (Georgian)</a>: firearm storage, ammunition transport and FAQs</p>
+</div>
 
 <h2>ℹ️ About</h2>
 <div class="card">

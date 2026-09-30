@@ -2,6 +2,7 @@
  * Application state (Svelte 5 runes) persisted to localStorage.
  * Everything the solver needs lives here in metric; UI converts at the edge.
  */
+import { DEFAULT_WEZ, hitProbability, perturb, type WezConfig, type WezResult } from "../core/wez";
 import { atRange, applyZeroOffset, applyMvCurve, calculateSolution, type BallisticSolution, type CalcInputs } from "../core";
 import type { UnitSystem, Angular } from "./units";
 import { CLICK_OPTIONS } from "./units";
@@ -48,6 +49,8 @@ export interface Conditions {
   lat: number;
   lon: number;
   shotAngleDeg: number;
+  targetSpeedKmh: number;   // moving target, 0 = stationary
+  targetDirDeg: number;     // 90 = left→right across the line of fire, 270 = right→left, 0/180 = towards/away
   cantAngleDeg: number;
 }
 
@@ -59,7 +62,10 @@ export interface Settings {
   reticleFp: "FFP" | "SFP";
   reticleCalMag: number;
   reticleCurMag: number;
+  scopeMinMag: number;
+  scopeMaxMag: number;
   turretPerRev: number;
+  wez: WezConfig;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -105,11 +111,11 @@ class Store {
   ammoId = $state("");
   cond = $state<Conditions>({
     targetRangeM: 500, windSpeedMps: 3, windDirDeg: 270, headingDeg: 0, tempC: 15, pressureMbar: 1013,
-    humidityPct: 50, altitudeM: 0, lat: 41.7151, lon: 44.8271, shotAngleDeg: 0, cantAngleDeg: 0,
+    humidityPct: 50, altitudeM: 0, lat: 41.7151, lon: 44.8271, shotAngleDeg: 0, cantAngleDeg: 0, targetSpeedKmh: 0, targetDirDeg: 90,
   });
   settings = $state<Settings>({
     units: "metric", angular: "MRAD", click: "0.1 MRAD", reticle: "MIL-Dot", reticleFp: "FFP",
-    reticleCalMag: 10, reticleCurMag: 10, turretPerRev: 10,
+    reticleCalMag: 10, reticleCurMag: 10, scopeMinMag: 3, scopeMaxMag: 15, turretPerRev: 10, wez: { ...DEFAULT_WEZ },
   });
   recent = $state<number[]>([]);
   weatherStatus = $state("");
@@ -122,7 +128,7 @@ class Store {
       this.rifleId = p.rifleId;
       this.ammoId = p.ammoId;
       this.cond = { ...this.cond, ...p.cond };
-      this.settings = { ...this.settings, ...p.settings };
+      this.settings = { ...this.settings, ...p.settings, wez: { ...DEFAULT_WEZ, ...(p.settings?.wez ?? {}) } };
       this.recent = p.recent ?? [];
     }
     if (!this.rifles.find((r) => r.id === this.rifleId)) this.rifleId = this.rifles[0].id;
@@ -188,6 +194,21 @@ class Store {
   }
 
   target() { return atRange(this.solve(), this.cond.targetRangeM); }
+
+  private wezKey = ""; private wezSols: { base: BallisticSolution; mv: BallisticSolution; wind: BallisticSolution } | null = null;
+  /** Hit probability at `rangeM` (default: target range). Three solves to 1200 m, cached until inputs change. */
+  wez(rangeM = this.cond.targetRangeM): WezResult | null {
+    const D_MV = 10, D_WIND = 1;
+    const inp = this.inputs(1200); const r = this.rifle;
+    const key = JSON.stringify([inp, r.zeroOffsetVCm, r.zeroOffsetHCm]);
+    if (key !== this.wezKey || !this.wezSols) {
+      const zo = (s: BallisticSolution) => applyZeroOffset(s, r.zeroRangeM, r.zeroOffsetVCm, r.zeroOffsetHCm);
+      const p = perturb(inp, D_MV, D_WIND);
+      this.wezSols = { base: zo(calculateSolution(inp)), mv: zo(calculateSolution(p.mv)), wind: zo(calculateSolution(p.wind)) };
+      this.wezKey = key;
+    }
+    return hitProbability(rangeM, this.wezSols, D_MV, D_WIND, this.settings.wez);
+  }
 
   setRange(m: number) {
     this.cond.targetRangeM = Math.max(10, Math.min(3000, Math.round(m * 10) / 10));

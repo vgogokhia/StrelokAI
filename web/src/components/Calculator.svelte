@@ -4,9 +4,19 @@
   import { dropMrad, windageMrad, densityAltitudeFt, airDensity, speedOfSound, trueMuzzleVelocity, trueBallisticCoefficient } from "../core";
   import {
     rangeFrom, rangeTo, rangeLabel, windFrom, windTo, speedLabel, tempFrom, tempTo, tempLabel, pressFrom, pressTo, pressLabel,
-    altFrom, altTo, altLabel, fmtAng, fmtDrop, fmtRange, fmtVel, fmtEnergy, fmtTemp, fmtPress, clicksFor, toAngular, fromAngular,
+    altFrom, altTo, altLabel, fmtAng, fmtDrop, fmtRange, fmtVel, fmtEnergy, fmtTemp, fmtPress, clicksFor, toAngular, fromAngular, smallLabel, velLabel, velFrom,
   } from "../lib/units";
   import { fetchWeather, locate } from "../lib/weather";
+  import { billing } from "../lib/billing.svelte";
+  import { TARGET_PRESETS } from "../core/wez";
+  const wz = $derived(store.settings.wez);
+  const pct = (p: number) => `${Math.round(p * 100)}%`;
+  const pColor = (p: number) => (p >= 0.9 ? "var(--green)" : p >= 0.7 ? "#e6b450" : "#e05a5a");
+  const sz = (m: number) => (u === "imperial" ? `${(m * 39.3701).toFixed(1)} in` : `${(m * 100).toFixed(0)} cm`);
+  function logActivity(kind: "weather" | "locate") {
+    if (!billing.user) return; // only signed-in users; ~1 km resolution, see /privacy/
+    fetch("/api/activity", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, lat: store.cond.lat, lon: store.cond.lon }) }).catch(() => {});
+  }
 
   const u = $derived(store.settings.units);
   const ang = $derived(store.settings.angular);
@@ -14,11 +24,20 @@
   const pt = $derived(store.target());
   const quick = $derived(u === "imperial" ? [100, 300, 500, 800, 1000].map((y) => Math.round(y / 1.09361 * 10) / 10) : [100, 300, 500, 800, 1000]);
   const quickLabels = [100, 300, 500, 800, 1000];
+  const wez = $derived(store.wez());
+  const wezRanges = $derived(quick.map((m) => ({ m, r: store.wez(m) })));
   const dispRange = $derived(Math.round(rangeFrom(store.cond.targetRangeM, u)));
 
   const elevDir = $derived(pt && pt.dropM < 0 ? "UP" : "DOWN");
   const windDial = $derived(pt && pt.windageM < 0 ? "RIGHT" : "LEFT");
   const impactSide = $derived(pt && pt.windageM < 0 ? "left" : "right");
+  // Lead for a moving target: lateral speed × time of flight, expressed as an angle at the target.
+  const lead = $derived.by(() => {
+    const c = store.cond; if (!pt || !(c.targetSpeedKmh > 0)) return null;
+    const lateral = (c.targetSpeedKmh / 3.6) * Math.sin((c.targetDirDeg * Math.PI) / 180); // + = target moving right
+    const m = lateral * pt.timeS; if (Math.abs(m) < 0.005) return null;
+    return { m, mrad: (Math.abs(m) / c.targetRangeM) * 1000, dir: m > 0 ? "RIGHT" : "LEFT" };
+  });
 
   const relDesc = $derived.by(() => {
     const w = store.windRelDeg;
@@ -60,6 +79,7 @@
       store.cond.tempC = w.temperatureC; store.cond.pressureMbar = w.pressureMbar; store.cond.humidityPct = w.humidityPct;
       store.cond.windSpeedMps = w.windSpeedMps; store.cond.windDirDeg = w.windDirectionDeg;
       if (w.elevationM) store.cond.altitudeM = w.elevationM;
+      logActivity("weather");
       msg = { kind: "ok", text: `✅ ${fmtTemp(w.temperatureC, u)} · ${fmtPress(w.pressureMbar, u)} · RH ${w.humidityPct.toFixed(0)}% · wind ${windFrom(w.windSpeedMps, u).toFixed(1)} ${speedLabel(u)} from ${w.windDirectionDeg.toFixed(0)}°` };
     } catch (e) {
       msg = { kind: "err", text: "Weather service unreachable (offline?). Values left unchanged." };
@@ -81,13 +101,29 @@
   let sensorPitch = $state<number | null>(null);
   let sensorRoll = $state<number | null>(null);
   let sensorsOn = $state(false);
+  // Smoothing: exponential moving average on the raw sensor stream (heading as a unit vector so 359°→1° doesn't
+  // swing through 180°), then the displayed value is refreshed at most 4×/s and only when it moved past a deadband.
+  const ALPHA = 0.15;          // EMA weight per sample (~60 Hz stream → ~0.3 s settle)
+  const UI_MS = 250;           // display refresh interval
+  const DEAD_H = 2, DEAD_T = 0.7; // deadband: heading °, tilt °
+  let hx = 0, hy = 0, sp: number | null = null, sr: number | null = null, lastUi = 0;
   function onOrient(e: DeviceOrientationEvent & { webkitCompassHeading?: number }) {
     let h: number | null = null;
     if (e.webkitCompassHeading != null) h = e.webkitCompassHeading;
     else if (e.alpha != null) h = 360 - e.alpha;
-    if (h != null) sensorHeading = ((Math.round(h) % 360) + 360) % 360;
-    if (e.beta != null) { let b = e.beta; if (b > 90) b = 180 - b; if (b < -90) b = -180 - b; sensorPitch = Math.round(b * 2) / 2; }
-    if (e.gamma != null) sensorRoll = Math.round(e.gamma * 2) / 2;
+    if (h != null) { const r = (h * Math.PI) / 180; hx += (Math.cos(r) - hx) * ALPHA; hy += (Math.sin(r) - hy) * ALPHA; }
+    if (e.beta != null) { let b = e.beta; if (b > 90) b = 180 - b; if (b < -90) b = -180 - b; sp = sp == null ? b : sp + (b - sp) * ALPHA; }
+    if (e.gamma != null) sr = sr == null ? e.gamma : sr + (e.gamma - sr) * ALPHA;
+    const now = performance.now();
+    if (now - lastUi < UI_MS) return;
+    lastUi = now;
+    if (h != null) {
+      const sh = ((Math.round((Math.atan2(hy, hx) * 180) / Math.PI) % 360) + 360) % 360;
+      const d = sensorHeading == null ? 999 : Math.abs(((sh - sensorHeading + 540) % 360) - 180);
+      if (d >= DEAD_H) sensorHeading = sh;
+    }
+    if (sp != null && (sensorPitch == null || Math.abs(sp - sensorPitch) >= DEAD_T)) sensorPitch = Math.round(sp * 2) / 2;
+    if (sr != null && (sensorRoll == null || Math.abs(sr - sensorRoll) >= DEAD_T)) sensorRoll = Math.round(sr * 2) / 2;
   }
   async function startSensors() {
     const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
@@ -124,7 +160,7 @@
 </script>
 
 <h2 class="visually-hidden">Ballistics calculator</h2>
-<div class="muted" style="margin:-6px 0 10px">{store.rifle.name} · {store.ammoSel.name} · {fmtVel(store.actualMv, u)}</div>
+<div class="muted" style="margin:-6px 0 10px">{store.rifle.name} · {store.ammoSel.name} · {fmtVel(store.actualMv, u)} · SG {sol.stabilityFactor.toFixed(2)}</div>
 
 <div class="card">
   <div class="row" style="flex-wrap:nowrap">
@@ -153,9 +189,35 @@
     <div style="margin-top:8px"></div>
     <div class="wind">{clicksFor(windageMrad(pt), store.clickMrad)} {windDial[0]}</div>
     <div class="sub">WINDAGE · dial {windDial} {fmtAng(Math.abs(windageMrad(pt)), ang)} (impact {impactSide})</div>
+    {#if lead}
+      <div style="margin-top:8px"></div>
+      <div class="wind" style="color:var(--amber,#e6b450)">{lead.dir === "RIGHT" ? "→" : "←"} {fmtAng(lead.mrad, ang)}</div>
+      <div class="sub">LEAD · hold {fmtAng(lead.mrad, ang)} {lead.dir} ({fmtDrop(Math.abs(lead.m), u)}) · TOF {pt.timeS.toFixed(2)} s</div>
+    {/if}
     <div class="sub" style="color:#667;margin-top:6px">{fmtRange(store.cond.targetRangeM, u)} · impacts {fmtDrop(Math.abs(pt.dropM), u)} {pt.dropM < 0 ? "low" : "high"} · {fmtDrop(Math.abs(pt.windageM), u)} {impactSide}</div>
   </div>
   {#if transonic}<div class="note {transonic.kind}">{transonic.text}</div>{/if}
+  <details style="margin-top:8px">
+    <summary>🎯 Hit probability{#if wez} · <b style="color:{pColor(wez.p)}">{pct(wez.p)}</b> on {sz(wz.targetWm)}×{sz(wz.targetHm)} at {fmtRange(store.cond.targetRangeM, u)}{/if}</summary>
+    {#if wez}
+      <div class="chips" style="margin-top:8px">
+        {#each wezRanges as q, i}<button style="flex-direction:column;color:{q.r ? pColor(q.r.p) : 'inherit'}" onclick={() => store.setRange(q.m)}><span>{quickLabels[i]}</span><b>{q.r ? pct(q.r.p) : "—"}</b></button>{/each}
+      </div>
+      <div class="muted" style="margin-top:8px">Error budget at {fmtRange(store.cond.targetRangeM, u)} (1σ): dispersion {fmtDrop(wez.parts.disp, u)} · MV spread {fmtDrop(wez.parts.mv, u)} vertical · wind call {fmtDrop(wez.parts.wind, u)} horizontal{#if wez.parts.range > 0.001} · range {fmtDrop(wez.parts.range, u)}{/if}. Total σ: {fmtDrop(wez.sigmaV, u)} V × {fmtDrop(wez.sigmaH, u)} H.</div>
+      <div class="chips" style="margin-top:8px;flex-wrap:wrap">
+        {#each TARGET_PRESETS as tp}<button class:active={wz.targetWm === tp.w && wz.targetHm === tp.h} onclick={() => { wz.targetWm = tp.w; wz.targetHm = tp.h; wz.shape = tp.shape; }}>{tp.name}</button>{/each}
+      </div>
+      <div class="grid2" style="margin-top:8px">
+        <Num label={`Target width (${smallLabel(u)})`} value={wz.targetWm} from={(m) => u === "imperial" ? m * 39.3701 : m * 100} to={(v) => u === "imperial" ? v / 39.3701 : v / 100} step={1} min={1} max={500} digits={0} onchange={(v) => (wz.targetWm = v)} />
+        <Num label={`Target height (${smallLabel(u)})`} value={wz.targetHm} from={(m) => u === "imperial" ? m * 39.3701 : m * 100} to={(v) => u === "imperial" ? v / 39.3701 : v / 100} step={1} min={1} max={500} digits={0} onchange={(v) => (wz.targetHm = v)} />
+        <Num label="Your group at 100 (MOA)" value={wz.groupMoa} step={0.1} min={0.1} max={10} digits={1} onchange={(v) => (wz.groupMoa = v)} />
+        <Num label={`MV spread SD (${velLabel(u)})`} value={wz.mvSdMps} from={(v) => velFrom(v, u)} to={(v) => u === "imperial" ? v / 3.28084 : v} step={1} min={0} max={100} digits={0} onchange={(v) => (wz.mvSdMps = v)} />
+        <Num label={`Wind call error (${speedLabel(u)})`} value={wz.windSdMps} from={(v) => u === "imperial" ? v * 2.23694 : v} to={(v) => u === "imperial" ? v / 2.23694 : v} step={0.5} min={0} max={20} digits={1} onchange={(v) => (wz.windSdMps = v)} />
+        <Num label="Range error (%)" value={wz.rangeSdPct} step={1} min={0} max={30} digits={0} onchange={(v) => (wz.rangeSdPct = v)} />
+      </div>
+      <div class="muted" style="margin-top:6px">Assumes a centred hold and a trued profile. Range error 0 = laser; ~5% for a reticle estimate. Ethical-shot rule of thumb: don't take game below 90%.</div>
+    {/if}
+  </details>
   {#if sol.stabilityFactor && sol.stabilityFactor < 1.3}<div class="note warn">Marginal stability (SG {sol.stabilityFactor.toFixed(2)}). Check twist and bullet length.</div>{/if}
 {/if}
 
@@ -184,6 +246,19 @@
       <Num label="Shot angle (° + uphill)" value={store.cond.shotAngleDeg} step={1} min={-60} max={60} onchange={(v) => (store.cond.shotAngleDeg = v)} />
       <Num label="Cant (° + right)" value={store.cond.cantAngleDeg} step={1} min={-45} max={45} onchange={(v) => (store.cond.cantAngleDeg = v)} />
     </div>
+  </details>
+  <details>
+    <summary>Moving target {store.cond.targetSpeedKmh > 0 ? `· ${u === "imperial" ? Math.round(store.cond.targetSpeedKmh * 0.621371) + " mph" : store.cond.targetSpeedKmh + " km/h"}` : "· stationary"}</summary>
+    <div class="grid2" style="margin-top:8px">
+      <Num label={`Target speed (${u === "imperial" ? "mph" : "km/h"})`} value={store.cond.targetSpeedKmh} from={(k) => u === "imperial" ? k * 0.621371 : k} to={(v) => u === "imperial" ? v / 0.621371 : v} step={1} min={0} max={120} digits={0} onchange={(v) => (store.cond.targetSpeedKmh = v)} />
+      <div><label class="f">Moving</label>
+        <div class="seg"><button class:on={store.cond.targetDirDeg === 270} onclick={() => (store.cond.targetDirDeg = 270)}>← R to L</button><button class:on={store.cond.targetDirDeg === 90} onclick={() => (store.cond.targetDirDeg = 90)}>L to R →</button></div></div>
+    </div>
+    <div class="chips" style="margin-top:6px">
+      {#each [["walking", 5], ["trotting", 12], ["running deer", 35], ["boar", 40]] as [l, k]}<button class:active={store.cond.targetSpeedKmh === k} onclick={() => (store.cond.targetSpeedKmh = k as number)}>{l}</button>{/each}
+      <button class:active={store.cond.targetSpeedKmh === 0} onclick={() => (store.cond.targetSpeedKmh = 0)}>stationary</button>
+    </div>
+    <div class="muted" style="margin-top:6px">Lead = target speed across the line of fire × time of flight. Hold into the direction of travel.</div>
   </details>
 </div>
 

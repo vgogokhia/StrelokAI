@@ -12,29 +12,11 @@
     const mrad = s.angular === "MOA" ? observed / MRAD_TO_MOA : observed;
     return mrad > 0 ? (sizeCm / 100) * 1000 / mrad : 0;
   });
-  const version = "0.1.0";
+  const version = __APP_VERSION__;
 
-  import { compressImage, sendFeedback } from "../lib/feedback";
-  let fbKind = $state("🐞 Bug");
-  let fbMsg = $state("");
-  let fbContact = $state("");
-  let fbShot = $state<string | null>(null);
-  let fbBusy = $state(false);
-  let fbNote = $state<{ kind: string; text: string } | null>(null);
-  async function pickShot(e: Event) {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (!f) { fbShot = null; return; }
-    try { fbShot = await compressImage(f); } catch { fbNote = { kind: "err", text: "Could not read the image." }; }
-  }
-  async function submitFeedback() {
-    if (fbMsg.trim().length < 5) { fbNote = { kind: "warn", text: "Message is too short." }; return; }
-    fbBusy = true; fbNote = null;
-    const r = await sendFeedback({ kind: fbKind, message: fbMsg, contact: fbContact, screenshot: fbShot,
-      meta: { version, units: s.units, angular: s.angular, rifle: `${store.rifle.name} (${store.rifle.chambering})`, ammo: store.ammoSel.name, range: store.cond.targetRangeM, screen: `${screen.width}x${screen.height}` } });
-    fbBusy = false;
-    if (r.ok) { fbNote = { kind: "ok", text: "Thanks, received! / მადლობა, მივიღე." }; fbMsg = ""; fbContact = ""; fbShot = null; }
-    else fbNote = { kind: "err", text: r.error === "offline" ? "You are offline — try again later." : r.error === "wait_a_minute" ? "Please wait a minute before sending again." : `Could not send: ${r.error}` };
-  }
+  import Feedback from "./Feedback.svelte";
+  import Metronome from "./Metronome.svelte";
+  import AngleConverter from "./AngleConverter.svelte";
 </script>
 
 <h2>⚙️ Settings</h2>
@@ -62,22 +44,14 @@
   <div class="muted" style="margin-top:6px">Torso ~45 cm · head ~18 cm · deer chest ~45–50 cm · IPSC 30×45 cm</div>
 </div>
 
+<h2>📐 MIL / MOA at distance</h2>
+<div class="card"><AngleConverter /></div>
+
+<h2>🎵 Metronome</h2>
+<div class="card"><Metronome /></div>
+
 <h2>💬 Feedback</h2>
-<div class="card">
-  <div class="muted" style="margin-bottom:8px">Found a bug or want a feature? Write here and attach a screenshot if it helps.</div>
-  <div class="seg" style="margin-bottom:8px">
-    {#each ["🐞 Bug", "💡 Idea", "💬 Other"] as k}<button class:on={fbKind === k} onclick={() => (fbKind = k)}>{k}</button>{/each}
-  </div>
-  <textarea bind:value={fbMsg} rows="4" maxlength="4000" placeholder="What happened, what you expected, which load/range…"
-    style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font:inherit"></textarea>
-  <div class="grid2" style="margin-top:8px">
-    <div><label class="f">Contact (optional)</label><input type="text" bind:value={fbContact} placeholder="email / Facebook / phone" /></div>
-    <div><label class="f">Screenshot</label><input type="file" accept="image/*" onchange={pickShot} style="width:100%" /></div>
-  </div>
-  {#if fbShot}<img src={fbShot} alt="screenshot" style="max-height:120px;border-radius:8px;margin-top:8px" />{/if}
-  <button class="primary" style="width:100%;margin-top:8px" disabled={fbBusy} onclick={submitFeedback}>📨 Send</button>
-  {#if fbNote}<div class="note {fbNote.kind}">{fbNote.text}</div>{/if}
-</div>
+<div class="card"><Feedback page="more" /></div>
 
 <h2>📖 Learn</h2>
 <div class="card">
@@ -89,6 +63,7 @@
 <div class="card">
   <p><b>ballistics.ge</b> — a free ballistic calculator that works offline. Add it to your home screen to use it at the range without an internet connection.</p>
   <p class="muted">RK4 point-mass solver, G1/G7 (BRL/JBM), spin drift, aero jump, Coriolis, cant, incline, powder temperature; validated against py_ballisticcalc. Bullet library: manufacturer published data.</p>
-  <p class="muted">v{version} · <a href="https://ballistics.ge" style="color:var(--green)">ballistics.ge</a></p>
+  <p class="muted">Free for now. If usage grows a lot, a small one-time Pro fee may be introduced to cover costs — everyone who signed in before that keeps Pro free. <a href="/pricing/" style="color:var(--green)">Pricing</a></p>
+  <p class="muted">v{version} · <a href="/ballistics/" style="color:var(--green)">Ballistics charts</a> · <a href="/terms/" style="color:var(--green)">Terms</a> · <a href="/privacy/" style="color:var(--green)">Privacy</a> · <a href="/refunds/" style="color:var(--green)">Refunds</a> · <a href="mailto:hello@ballistics.ge" style="color:var(--green)">hello@ballistics.ge</a></p>
   <button style="width:100%" onclick={() => { if (confirm("Reset all profiles and settings?")) store.reset(); }}>↺ Reset everything</button>
 </div>

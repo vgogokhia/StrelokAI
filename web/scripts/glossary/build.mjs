@@ -7,8 +7,9 @@ import terms, { CATEGORIES } from "./terms.mjs";
 const SITE = "https://ballistics.ge";
 const OUT = new URL("../../public/glossary/", import.meta.url).pathname;
 const SITEMAP = new URL("../../public/sitemap.xml", import.meta.url).pathname;
-const TODAY = new Date().toISOString().slice(0, 10);
+// Bump UPDATED when the content changes; rebuilding alone must not fake freshness.
 const PUBLISHED = "2026-09-30";
+const UPDATED = "2026-09-30";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const strip = (h) => h.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
@@ -40,8 +41,8 @@ const head = ({ title, description, url, type, ld }) => `<!doctype html><html la
 <link rel="stylesheet" href="/blog/blog.css"><link rel="stylesheet" href="/glossary/glossary.css">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/ballistics-b-32.png"><link rel="apple-touch-icon" sizes="180x180" href="/icons/ballistics-b-180.png">
 <script type="application/ld+json">${JSON.stringify(ld)}</script></head><body><a class="skip" href="#content">Skip to content</a>
-<header><a href="/" class="brand" aria-label="ballistics.ge"><img src="/brand/ballistics-logo.png" alt="ballistics.ge" width="1200" height="520"></a><nav aria-label="Main"><a href="/">Calculator</a> · <a href="/glossary/">Glossary</a> · <a href="/blog/" hreflang="ka">Blog (KA)</a></nav></header>`;
-const foot = `<footer>ballistics.ge · free ballistic calculator that works offline<br>Numbers on this page are calculated with the same solver the calculator uses (RK4 point-mass, G1/G7 drag, validated against py_ballisticcalc).</footer></body></html>`;
+<header><a href="/" class="brand" aria-label="ballistics.ge"><img src="/brand/ballistics-logo.png" alt="ballistics.ge" width="1200" height="520"></a><nav aria-label="Main"><a href="/">Calculator</a> · <a href="/ballistics/">Charts</a> · <a href="/glossary/">Glossary</a> · <a href="/blog/" hreflang="ka">Blog</a></nav></header>`;
+const foot = `<footer>ballistics.ge · free ballistic calculator that works offline · <a href="/ballistics/">Charts</a> · <a href="/terms/">Terms</a> · <a href="/privacy/">Privacy</a><br>Numbers on this page are calculated with the same solver the calculator uses (RK4 point-mass, G1/G7 drag, validated against py_ballisticcalc).</footer></body></html>`;
 const org = { "@type": "Organization", name: "ballistics.ge", url: `${SITE}/`, logo: `${SITE}/brand/ballistics-logo.png` };
 
 function page(t) {
@@ -51,13 +52,13 @@ function page(t) {
   const cta = `<p class="cta"><a class="btn" href="/">${t.cta ?? "Open the free ballistic calculator"} →</a><br><span class="meta">Works offline in your phone's browser. Add it to your home screen to use at the range.</span></p>`;
   const related = `<nav aria-label="Related terms"><h2>Related terms</h2><ul>${t.related.map((r) => `<li><a href="/glossary/${r}/">${bySlug[r].h1}</a>: ${bySlug[r].short}</li>`).join("")}</ul></nav>`;
   const ld = { "@context": "https://schema.org", "@graph": [
-    { "@type": "Article", headline: t.h1, description: t.description, inLanguage: "en", datePublished: PUBLISHED, dateModified: TODAY, mainEntityOfPage: url, image: `${SITE}/brand/ballistics-logo.png`, author: org, publisher: org, about: { "@type": "DefinedTerm", name: t.term, description: strip(t.answer), inDefinedTermSet: `${SITE}/glossary/` } },
+    { "@type": "Article", headline: t.h1, description: t.description, inLanguage: "en", datePublished: PUBLISHED, dateModified: UPDATED, mainEntityOfPage: url, image: `${SITE}/brand/ballistics-logo.png`, author: org, publisher: org, about: { "@type": "DefinedTerm", name: t.term, description: strip(t.answer), inDefinedTermSet: `${SITE}/glossary/` } },
     { "@type": "FAQPage", mainEntity: t.faq.map((f) => ({ "@type": "Question", name: strip(f.q), acceptedAnswer: { "@type": "Answer", text: strip(f.a) } })) },
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: `${SITE}/` }, { "@type": "ListItem", position: 2, name: "Glossary", item: `${SITE}/glossary/` }, { "@type": "ListItem", position: 3, name: t.h1, item: url }] },
   ] };
   const html = head({ title: t.title, description: t.description, url, type: "article", ld }) +
     `<main id="content"><p class="meta"><a href="/">Home</a> / <a href="/glossary/">Glossary</a> / ${esc(t.term)}</p><article><h1>${t.h1}</h1>
-<div class="answer"><p>${t.answer}</p></div><p class="meta">Updated <time datetime="${TODAY}">${new Date(TODAY).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time> · ballistics.ge</p>
+<div class="answer"><p>${t.answer}</p></div><p class="meta">Updated <time datetime="${UPDATED}">${new Date(UPDATED).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time> · ballistics.ge</p>
 ${body}\n${cta}\n${faq}</article>${related}</main>` + foot;
   return { html, words: words(t.answer + body + faq) };
 }
@@ -91,9 +92,10 @@ for (const t of list) {
 }
 await writeFile(OUT + "index.html", hub());
 
-let sm = await readFile(SITEMAP, "utf8");
+let sm = await readFile(SITEMAP, "utf8").catch(() => null);
+if (!sm) { console.log(`${list.length} pages written (no sitemap.xml yet; run gen-seo first).`); process.exit(0); }
 sm = sm.replace(/<url><loc>https:\/\/ballistics\.ge\/glossary\/[^<]*<\/loc>.*?<\/url>/g, "");
-const entries = [`<url><loc>${SITE}/glossary/</loc><lastmod>${TODAY}</lastmod><priority>0.8</priority></url>`, ...list.map((t) => `<url><loc>${SITE}/glossary/${t.slug}/</loc><lastmod>${TODAY}</lastmod></url>`)];
+const entries = [`<url><loc>${SITE}/glossary/</loc><lastmod>${UPDATED}</lastmod><priority>0.8</priority></url>`, ...list.map((t) => `<url><loc>${SITE}/glossary/${t.slug}/</loc><lastmod>${UPDATED}</lastmod></url>`)];
 sm = sm.replace("</urlset>", entries.join("") + "</urlset>");
 await writeFile(SITEMAP, sm);
 console.log(report.join("\n") + `\n${list.length} pages written.`);

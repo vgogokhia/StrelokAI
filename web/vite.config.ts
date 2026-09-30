@@ -33,7 +33,9 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,png,svg,json,woff2}"],
         globIgnores: ["ballistics/**", "pricing/**", "terms/**", "privacy/**", "refunds/**"],
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/admin/, /^\/(?:blog|glossary)(?:\/|$)/, /^\/(?:api|auth)(?:\/|$)/],
+        // The app shell answers only "/" (with any query). Every other page is a real static file.
+        navigateFallbackAllowlist: [/^\/(?:index\.html)?(?:\?.*)?$/],
+        navigateFallbackDenylist: [/^\/admin/, /^\/(?:api|auth)(?:\/|$)/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.open-meteo\.com\/.*/i,

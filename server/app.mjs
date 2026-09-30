@@ -143,6 +143,8 @@ const ASSISTANT_TOOLS = [
     shape: { type: 'string', enum: ['rect', 'ellipse'] } } } },
 ];
 
+const notFoundHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Page not found | ballistics.ge</title><link rel="stylesheet" href="/blog/blog.css"></head><body><main><h1>Page not found</h1><p>This page does not exist. გვერდი ვერ მოიძებნა.</p><ul><li><a href="/">Ballistic calculator</a></li><li><a href="/ballistics/">Ballistics charts</a></li><li><a href="/glossary/">Glossary</a></li></ul></main></body></html>`;
+
 export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails = [], paddle = {}, assistant = {}, google = new OAuth2Client(clientId, clientSecret, `${origin}/auth/google/callback`) }) {
   const admins = new Set(adminEmails.map(e => e.trim().toLowerCase()).filter(Boolean));
   const secure = new URL(origin).protocol === 'https:';
@@ -368,11 +370,24 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
       if (!['GET', 'HEAD'].includes(req.method)) return json(405, { error: 'method' });
       if (url.pathname === '/healthz') return json(200, { ok: true });
       if (url.pathname === '/admin') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(adminHtml); }
-      if (url.pathname === '/blog' || url.pathname === '/glossary') return redirect(url.pathname + '/');
       let file = resolve(root, '.' + decodeURIComponent(url.pathname));
       if (file !== root && !file.startsWith(root + sep)) return json(404, { error: 'not_found' });
-      try { if ((await stat(file)).isDirectory()) file = resolve(file, 'index.html'); await stat(file); }
-      catch { if (url.pathname.startsWith('/blog/') || url.pathname.startsWith('/glossary/') || extname(file)) return json(404, { error: 'not_found' }); file = resolve(root, 'index.html'); }
+      // The app itself lives only at "/". Static sections (blog, glossary, charts, legal pages) are real files;
+      // anything else is a genuine 404, never the app shell (which search engines treat as a soft 404).
+      try {
+        if ((await stat(file)).isDirectory()) {
+          if (!url.pathname.endsWith('/')) { res.writeHead(301, { Location: url.pathname + '/' + url.search }); return res.end(); }
+          file = resolve(file, 'index.html');
+        }
+        await stat(file);
+      } catch {
+        if (url.pathname !== '/' || extname(file)) {
+          if (extname(file) && extname(file) !== '.html') return json(404, { error: 'not_found' });
+          res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+          return res.end(notFoundHtml);
+        }
+        file = resolve(root, 'index.html');
+      }
       const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain', '.xml': 'application/xml', '.woff2': 'font/woff2' };
       res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': file.includes(`${sep}assets${sep}`) ? 'public,max-age=31536000,immutable' : 'no-cache' });
       res.end(req.method === 'HEAD' ? undefined : await readFile(file));

@@ -217,3 +217,21 @@ test('photos are validated and translated for each vendor', async t => {
   assert.equal((await fetch(`${base}/api/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ messages: [{ role: 'user', content: [img, img, img, img] }] }) })).status, 400);
   assert.equal((await fetch(`${base}/api/assistant`, { method: 'POST', headers: h, body: JSON.stringify({ messages: msgs }) })).status, 200);
 });
+test('app shell only at "/"; static sections are real pages or real 404s', async t => {
+  const { request } = await setup(t);
+  const root = await request('/?ai=1');
+  assert.equal(root.status, 200);
+  assert.match(await root.text(), /id="app"/);
+  const page = await request('/glossary/mil-vs-moa/');
+  assert.equal(page.status, 200);
+  assert.doesNotMatch(await page.text(), /id="app"/);
+  const bare = await request('/glossary');
+  assert.equal(bare.status, 301);
+  assert.equal(bare.headers.get('location'), '/glossary/');
+  for (const path of ['/ballistics/no-such-cartridge/', '/pricing/nope', '/some/random/path', '/glossary/nope/']) {
+    const r = await request(path);
+    assert.equal(r.status, 404, path);
+    assert.doesNotMatch(await r.text(), /id="app"/, path);
+  }
+  assert.equal((await request('/missing.js')).status, 404);
+});

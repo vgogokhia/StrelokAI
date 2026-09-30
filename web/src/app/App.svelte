@@ -10,6 +10,8 @@
   import Feedback from "../components/Feedback.svelte";
   import Assistant from "../components/Assistant.svelte";
   import { installFeedbackFlusher } from "../lib/feedback";
+  import { decodeShare, type SharedLoad } from "../lib/share";
+  import { billing, FREE_RIFLES, FREE_AMMO } from "../lib/billing.svelte";
 
   type Tab = "calc" | "profiles" | "dope" | "reticle" | "more";
   let tab = $state<Tab>((localStorage.getItem("bge_tab") as Tab) || "calc");
@@ -31,6 +33,35 @@
     if (q.has("ai") || localStorage.getItem("bge_open_ai")) { aiOpen = true; tab = "calc"; localStorage.removeItem("bge_open_ai"); if (q.has("ai")) history.replaceState(null, "", location.pathname); }
   } catch { /* ignore */ }
   installFeedbackFlusher();
+
+  // Shared rifle + load arriving as ballistics.ge/#p=... (see lib/share.ts).
+  let incoming = $state<SharedLoad | null>(null);
+  let shareMsg = $state("");
+  async function readShare() {
+    if (!location.hash.startsWith("#p=")) return;
+    const s = await decodeShare(location.hash);
+    history.replaceState(null, "", location.pathname + location.search);
+    if (s) { incoming = s; shareMsg = ""; } else { incoming = null; shareMsg = t("This share link is damaged or from a newer version of the app."); }
+  }
+  void readShare();
+  $effect(() => {
+    const onHash = () => void readShare();
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  });
+  const newId = () => Math.random().toString(36).slice(2, 10);
+  const same = (a: object, b: object) => JSON.stringify(a) === JSON.stringify(b);
+  function importShared() {
+    const s = incoming; if (!s) return;
+    const rifle = store.rifles.find(({ id, ...r }) => same(r, s.rifle));
+    const ammo = store.ammo.find(({ id, ...a }) => same(a, s.ammo));
+    if ((!rifle && billing.limited && store.rifles.length >= FREE_RIFLES) || (!ammo && billing.limited && store.ammo.length >= FREE_AMMO)) {
+      shareMsg = t("Your free plan has no room for another profile. Upgrade to Pro in My account or delete one first."); return;
+    }
+    if (rifle) store.rifleId = rifle.id; else store.addRifle({ ...s.rifle, id: newId() });
+    if (ammo) store.ammoId = ammo.id; else store.addAmmo({ ...s.ammo, id: newId() });
+    incoming = null; tab = "calc";
+  }
   $effect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { fbOpen = false; aiOpen = false; } };
     window.addEventListener("keydown", onKey);
@@ -69,6 +100,25 @@
         <button type="button" aria-label={t("Close")} onclick={() => (aiOpen = false)}>✕</button>
       </div>
       <Assistant />
+    </div>
+  </div>
+{/if}
+{#if incoming || shareMsg}
+  <div class="modal-bg" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) { incoming = null; shareMsg = ""; } }}>
+    <div class="modal" role="dialog" aria-modal="true" aria-label={t("Shared rifle and load")}>
+      <h2 style="margin-top:0">🔗 {t("Shared rifle and load")}</h2>
+      {#if incoming}
+        <div class="card">
+          <b>🔫 {incoming.rifle.name}</b> <span class="muted">· {incoming.rifle.chambering} · {t("Zero range")} {incoming.rifle.zeroRangeM} m · 1:{incoming.rifle.twistRateIn}</span><br />
+          <b>{incoming.ammo.name}</b> <span class="muted">· {incoming.ammo.massGrains} gr · {incoming.ammo.dragModel} {incoming.ammo.bc} · {Math.round(incoming.ammo.muzzleVelocityMps)} m/s</span>
+        </div>
+        <p class="muted">{t("Add this rifle and load to your profiles? Your existing profiles are not changed.")}</p>
+      {/if}
+      {#if shareMsg}<div class="note warn">{shareMsg}</div>{/if}
+      <div class="row">
+        {#if incoming}<button class="primary" style="flex:1" onclick={importShared}>✔ {t("Add to my profiles")}</button>{/if}
+        <button style="flex:1" onclick={() => { incoming = null; shareMsg = ""; }}>{incoming ? t("Cancel") : t("Close")}</button>
+      </div>
     </div>
   </div>
 {/if}

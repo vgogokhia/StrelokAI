@@ -3,6 +3,7 @@
   import { store } from "../lib/store.svelte";
   import { buildDopeTable, rowsToCsv } from "../core";
   import Num from "./Num.svelte";
+  import ShareButton from "./ShareButton.svelte";
   import { rangeFrom, rangeTo, rangeLabel, windFrom, windTo, speedLabel, velFrom, velLabel, toAngular } from "../lib/units";
 
   const u = $derived(store.settings.units);
@@ -61,4 +62,5 @@
   </table>
   <div class="muted" style="margin-top:6px">{t("Orange rows: transonic/subsonic (Mach < 1.2). Drop negative = dial UP.")}</div>
   <button style="width:100%;margin-top:8px" onclick={download}>⬇ CSV</button>
+  <ShareButton />
 </div>

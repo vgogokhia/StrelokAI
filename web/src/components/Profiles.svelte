@@ -9,6 +9,7 @@
   import { CHAMBERING_NAMES, isCompatible, LIBRARY_CALIBER_TO_CHAMBERING } from "../lib/calibers";
   import { rangeFrom, rangeTo, rangeLabel, sightFrom, sightTo, sightLabel, velFrom, velTo, velLabel, tempFrom, tempTo, tempLabel, smallFrom, smallTo, smallLabel, pressFrom, pressTo, pressLabel } from "../lib/units";
   import { hasFeature } from "../lib/license";
+  import ShareButton from "./ShareButton.svelte";
 
   const u = $derived(store.settings.units);
   const rifle = $derived(store.rifle);
@@ -136,3 +137,4 @@
     {/if}
   </details>
 </div>
+<ShareButton />

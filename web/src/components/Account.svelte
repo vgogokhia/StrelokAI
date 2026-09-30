@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { t, i18n, setLang } from '../lib/i18n.svelte';
   import { store } from '../lib/store.svelte';
   import { emptyProfiles, mergeProfiles, type ProfileData } from '../lib/profile-sync';
   import { billing, openCheckout, PRO_PRICE } from '../lib/billing.svelte';
@@ -40,14 +41,14 @@
       saveBase();
       if (JSON.stringify(applied) !== JSON.stringify(store.profileData())) store.applyProfiles(applied);
       localOnFirstSync = null;
-      status = 'Profiles synced';
+      status = t('Profiles synced');
     } catch (error) {
       const code = (error as Error).message;
       if (code === '401' || code === 'account_changed') { user = null; initialized = false; }
-      status = code === '401' ? 'Your session has expired. Sign in again. Changes are saved on this device.'
+      status = t(code === '401' ? 'Your session has expired. Sign in again. Changes are saved on this device.'
         : code === 'account_changed' ? 'Your account has changed. Checking your sign-in again.'
         : code === '409' ? 'Your account or profiles have changed. Please try syncing again.'
-        : 'Could not sync. Changes are saved on this device.';
+        : 'Could not sync. Changes are saved on this device.');
     } finally { busy = false; }
   }
   async function upgrade() {
@@ -55,11 +56,11 @@
     try {
       const paid = await openCheckout();
       if (paid) {
-        upgradeMsg = 'Payment received — activating Pro…';
+        upgradeMsg = t('Payment received — activating Pro…');
         for (let i = 0; i < 10; i++) { await new Promise(r => setTimeout(r, 1500)); const a = await request('/api/account'); billing.set(a.user, a.billing); user = a.user; if (a.user?.pro) break; }
-        upgradeMsg = user?.pro ? 'Pro is active. Thank you!' : 'Paid, but activation is taking longer than usual. Reload in a minute or write to hello@ballistics.ge.';
+        upgradeMsg = t(user?.pro ? 'Pro is active. Thank you!' : 'Paid, but activation is taking longer than usual. Reload in a minute or write to hello@ballistics.ge.');
       }
-    } catch { upgradeMsg = 'Could not open checkout. Please try again.'; }
+    } catch { upgradeMsg = t('Could not open checkout. Please try again.'); }
     finally { upgrading = false; }
   }
   async function initialize() {
@@ -76,15 +77,15 @@
         initialized = true;
         await sync();
       } else {
-        status = store.owner ? 'Sign in again to sync. Profiles are saved on this device.' : 'Save your profiles to your account and access them on other devices.';
+        status = t(store.owner ? 'Sign in again to sync. Profiles are saved on this device.' : 'Save your profiles to your account and access them on other devices.');
       }
       const params = new URLSearchParams(location.search);
       if (params.has('auth')) {
-        if (params.get('auth') === 'failed') { status = 'Google sign-in could not be completed. Please try again.'; open = true; }
+        if (params.get('auth') === 'failed') { status = t('Google sign-in could not be completed. Please try again.'); open = true; }
         params.delete('auth');
         history.replaceState(null, '', location.pathname + (params.size ? '?' + params : '') + location.hash);
       }
-    } catch { status = 'Could not connect. Your local profiles are still available.'; }
+    } catch { status = t('Could not connect. Your local profiles are still available.'); }
   }
   async function logout() {
     if (busy) return;
@@ -93,8 +94,8 @@
       await request('/api/logout', { method: 'POST' });
       store.switchOwner('');
       user = null; initialized = false; base = emptyProfiles();
-      status = 'Signed out. A local copy of your account profiles is retained.';
-    } catch { status = 'Could not sign out. Check your connection and try again.'; }
+      status = t('Signed out. A local copy of your account profiles is retained.');
+    } catch { status = t('Could not sign out. Check your connection and try again.'); }
     finally { busy = false; }
   }
   onMount(() => {
@@ -116,27 +117,27 @@
 
 <div class="account-bar">
   <a href="/" class="brand" aria-label="Ballistics.ge home"><img src="/brand/ballistics-logo.png" alt="Ballistics.ge" width="1200" height="520" fetchpriority="high" /></a>
-  <button class="small" onclick={() => open = !open} aria-expanded={open}>{user ? 'My account' : 'Sign in'}</button>
+  <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="small" onclick={() => setLang(i18n.lang === 'ka' ? 'en' : 'ka')} aria-label={i18n.lang === 'ka' ? 'Switch to English' : 'ქართულზე გადართვა'} title={i18n.lang === 'ka' ? 'English' : 'ქართული'}>{i18n.lang === 'ka' ? 'EN' : 'ქარ'}</button><button class="small" onclick={() => open = !open} aria-expanded={open}>{user ? t('My account') : t('Sign in')}</button></div>
 </div>
 {#if open}
-  <section class="card" aria-label="Account">
-    <h2>{user ? user.name : 'Your profiles, on every device'}</h2>
+  <section class="card" aria-label={t('Account')}>
+    <h2>{user ? user.name : t('Your profiles, on every device')}</h2>
     {#if user}<p class="muted">{user.email}</p>{/if}
     <p class="muted" role="status">{status}</p>
     {#if user}
-      {#if user.pro}<p class="muted">⭐ {user.plan === 'founder' ? 'Founder — Pro is free for you, forever.' : 'Pro'}</p>{/if}
+      {#if user.pro}<p class="muted">⭐ {user.plan === 'founder' ? t('Founder — Pro is free for you, forever.') : 'Pro'}</p>{/if}
       {#if billing.canUpgrade}
-        <button class="primary" style="width:100%" onclick={upgrade} disabled={upgrading}>{upgrading ? 'Opening checkout…' : `⭐ Upgrade to Pro — ${PRO_PRICE}`}</button>
-        <p class="muted">Unlimited profiles, cloud sync, DOPE export. No subscription. <a href="/pricing/" style="color:var(--green)">Details</a></p>
+        <button class="primary" style="width:100%" onclick={upgrade} disabled={upgrading}>{upgrading ? t('Opening checkout…') : `⭐ ${t('Upgrade to Pro')} — ${PRO_PRICE}`}</button>
+        <p class="muted">{t("Unlimited profiles, cloud sync, DOPE export. No subscription.")} <a href="/pricing/" style="color:var(--green)">{t("Details")}</a></p>
       {/if}
       {#if upgradeMsg}<p class="muted" role="status">{upgradeMsg}</p>{/if}
-      <div class="row"><button onclick={sync} disabled={busy}>Sync now</button><button onclick={logout} disabled={busy}>Sign out</button></div>
-      <p class="muted">Conflicting edits keep both versions. Offline changes upload when you reconnect.</p>
+      <div class="row"><button onclick={sync} disabled={busy}>{t("Sync now")}</button><button onclick={logout} disabled={busy}>{t("Sign out")}</button></div>
+      <p class="muted">{t("Conflicting edits keep both versions. Offline changes upload when you reconnect.")}</p>
     {:else if enabled}
-      <a class="btn google" href="/auth/google" onclick={() => store.persist()}>Sign in with Google</a>
-      <p class="muted">When you first sign in, existing profiles on this device are also added to your account.</p>
+      <a class="btn google" href="/auth/google" onclick={() => store.persist()}>{t("Sign in with Google")}</a>
+      <p class="muted">{t("When you first sign in, existing profiles on this device are also added to your account.")}</p>
     {:else}
-      <p class="muted">Google sign-in is not available yet. Profiles are saved on this device.</p>
+      <p class="muted">{t("Google sign-in is not available yet. Profiles are saved on this device.")}</p>
     {/if}
   </section>
 {/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   /** Breathing / trigger-cadence metronome. Web Audio click, optional vibration, runs until stopped. */
   let bpm = $state(60);
   let running = $state(false);
@@ -32,5 +33,5 @@
   <button class="small" onclick={() => (bpm = Math.min(160, bpm + 2))}>+</button>
 </div>
 <div class="chips" style="margin:8px 0">{#each PRESETS as p}<button class:active={bpm === p} onclick={() => (bpm = p)}>{p}</button>{/each}</div>
-<button class="primary" style="width:100%" onclick={() => (running ? stop() : start())}>{running ? `⏹ Stop · beat ${(beat % 4) + 1}` : "▶ Start"}</button>
-<div class="muted" style="margin-top:6px">Breathe out on the accent, break the shot on the pause. 60 bpm ≈ resting pulse. Works with the screen on.</div>
+<button class="primary" style="width:100%" onclick={() => (running ? stop() : start())}>{running ? `⏹ ${t("Stop")} · ${t("beat")} ${(beat % 4) + 1}` : `▶ ${t("Start")}`}</button>
+<div class="muted" style="margin-top:6px">{t("Breathe out on the accent, break the shot on the pause. 60 bpm ≈ resting pulse. Works with the screen on.")}</div>

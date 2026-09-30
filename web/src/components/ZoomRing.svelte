@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   /** Rotary magnification ring: drag around it like the power ring on a scope. Tap the centre to snap back to the "true at" power. */
   interface Props { value: number; min: number; max: number; trueAt: number; onchange: (v: number) => void }
   let { value, min, max, trueAt, onchange }: Props = $props();
@@ -30,7 +31,7 @@
   function up(e: PointerEvent) { if (last != null && !dragged) { const b = svgEl!.getBoundingClientRect(); const dx = e.clientX - (b.left + b.width / 2), dy = e.clientY - (b.top + b.height / 2); if (Math.hypot(dx, dy) < b.width * 0.25) onchange(trueAt); } last = null; }
 </script>
 
-<svg bind:this={svgEl} viewBox="0 0 260 260" style="width:min(260px,70vw);display:block;margin:0 auto;touch-action:none;user-select:none" role="slider" aria-label="Magnification" aria-valuemin={min} aria-valuemax={max} aria-valuenow={value}
+<svg bind:this={svgEl} viewBox="0 0 260 260" style="width:min(260px,70vw);display:block;margin:0 auto;touch-action:none;user-select:none" role="slider" aria-label={t("Magnification")} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value}
   onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up}>
   <circle cx={C} cy={C} r={R + 14} fill="var(--panel2)" stroke="var(--border)" />
   <path d={arc(-SWEEP / 2, SWEEP / 2, R)} fill="none" stroke="var(--border)" stroke-width="6" stroke-linecap="round" />
@@ -42,5 +43,5 @@
   <circle cx={tp.x} cy={tp.y} r="4" fill="none" stroke="var(--text)" stroke-width="1.5" />
   <circle cx={kp.x} cy={kp.y} r="11" fill="var(--green)" stroke="#000" stroke-width="2" />
   <text x={C} y={C - 6} fill="var(--text)" font-size="34" font-weight="700" text-anchor="middle" dominant-baseline="middle">{value}×</text>
-  <text x={C} y={C + 24} fill="var(--muted)" font-size="11" text-anchor="middle">{value === trueAt ? "reticle true" : "tap to reset"}</text>
+  <text x={C} y={C + 24} fill="var(--muted)" font-size="11" text-anchor="middle">{value === trueAt ? t("reticle true") : t("tap to reset")}</text>
 </svg>

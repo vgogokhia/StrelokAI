@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "../lib/i18n.svelte";
   import { snapshotState, runTool, previewTool, takeUndo, applyUndo, READ_ONLY } from "../lib/assistant";
   import { billing } from "../lib/billing.svelte";
   import { compressImage } from "../lib/feedback";
@@ -39,7 +40,7 @@
   async function send(q = text) {
     q = q.trim(); const imgs = photos.slice();
     if ((!q && !imgs.length) || busy) return;
-    if (!q) q = "Look at this photo and help me with it.";
+    if (!q) q = t("Look at this photo and help me with it.");
     text = ""; photos = []; busy = true;
     lines.push({ who: "me", text: q, imgs });
     history.push({ role: "user", content: imgs.length ? [...imgs.map((d) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: d.split(",")[1] } })), { type: "text", text: q }] : q });
@@ -62,7 +63,7 @@
           pending.push({ u, changed: pv.changed });
         }
         if (pending.length) {
-          const ok = await new Promise<boolean>((resolve) => lines.push({ who: "ask", text: "Apply these changes?", items: pending.flatMap((p) => p.changed), decide: resolve }));
+          const ok = await new Promise<boolean>((resolve) => lines.push({ who: "ask", text: t("Apply these changes?"), items: pending.flatMap((p) => p.changed), decide: resolve }));
           for (const p of pending) {
             if (!ok) { results.push({ type: "tool_result", tool_use_id: p.u.id, content: JSON.stringify({ declined: true, note: "The user did not approve this change. Nothing was changed." }) }); continue; }
             const out = await runTool(p.u.name!, (p.u.input ?? {}) as Record<string, unknown>);
@@ -74,18 +75,18 @@
       }
     } catch (e) {
       const m = (e as Error).message;
-      lines.push({ who: "sys", text: m === "signin" ? "Sign in with Google (More → My account) to use the assistant." : m === "limit" ? "Daily assistant limit reached — try again tomorrow." : m === "disabled" ? "The assistant is not enabled on this server yet." : "No connection — the assistant needs internet. The calculator itself still works offline." });
+      lines.push({ who: "sys", text: m === "signin" ? t("Sign in with Google (More → My account) to use the assistant.") : m === "limit" ? t("Daily assistant limit reached — try again tomorrow.") : m === "disabled" ? t("The assistant is not enabled on this server yet.") : t("No connection — the assistant needs internet. The calculator itself still works offline.") });
       history = history.filter((h) => !(h.role === "user" && (h.content === q || (Array.isArray(h.content) && h.content.some((b) => b.text === q))))); // allow resend
     } finally { busy = false; }
   }
-  function undo(l: Line) { if (!l.undo) return; applyUndo(l.undo); lines.push({ who: "sys", text: "↩️ Changes undone." }); l.undo = undefined; }
+  function undo(l: Line) { if (!l.undo) return; applyUndo(l.undo); lines.push({ who: "sys", text: `↩️ ${t("Changes undone.")}` }); l.undo = undefined; }
   function reset() { history = []; lines = []; }
 </script>
 
-<div class="muted" style="margin-bottom:8px">Tell me what happened or what to set, or 📷 send a photo of your target, ammo box, rifle or scope — I'll set up the calculator. You approve every change.</div>
+<div class="muted" style="margin-bottom:8px">{t("Tell me what happened or what to set, or 📷 send a photo of your target, ammo box, rifle or scope — I'll set up the calculator. You approve every change.")}</div>
 <div bind:this={listEl} class="chat">
   {#if !lines.length}
-    <div class="chips" style="flex-wrap:wrap">{#each EXAMPLES as ex}<button class="ex" onclick={() => (ex.startsWith("📷") ? fileEl?.click() : send(ex))}>{ex}</button>{/each}</div>
+    <div class="chips" style="flex-wrap:wrap">{#each EXAMPLES as ex}<button class="ex" onclick={() => (ex.startsWith("📷") ? fileEl?.click() : send(ex))}>{t(ex)}</button>{/each}</div>
   {/if}
   {#each lines as l}
     {#if l.who === "ask"}
@@ -93,23 +94,23 @@
         <b>{l.text}</b>
         <ul>{#each l.items ?? [] as it}<li>{it}</li>{/each}</ul>
         {#if l.decided}<div class="muted">{l.decided}</div>
-        {:else}<div class="row" style="gap:6px"><button class="primary" style="flex:1" onclick={() => { l.decided = "✅ Applied"; l.decide?.(true); }}>✅ Apply</button><button style="flex:1" onclick={() => { l.decided = "✖ Cancelled"; l.decide?.(false); }}>✖ Cancel</button></div>{/if}
+        {:else}<div class="row" style="gap:6px"><button class="primary" style="flex:1" onclick={() => { l.decided = `✅ ${t("Applied")}`; l.decide?.(true); }}>✅ {t("Apply")}</button><button style="flex:1" onclick={() => { l.decided = `✖ ${t("Cancelled")}`; l.decide?.(false); }}>✖ {t("Cancel")}</button></div>{/if}
       </div>
     {:else}
-      <div class="msg {l.who}">{#if l.imgs?.length}<div class="thumbs">{#each l.imgs as src}<img {src} alt="" />{/each}</div>{/if}{l.text}{#if l.undo}<div><button class="small" onclick={() => undo(l)}>↩️ Undo</button></div>{/if}</div>
+      <div class="msg {l.who}">{#if l.imgs?.length}<div class="thumbs">{#each l.imgs as src}<img {src} alt="" />{/each}</div>{/if}{l.text}{#if l.undo}<div><button class="small" onclick={() => undo(l)}>↩️ {t("Undo")}</button></div>{/if}</div>
     {/if}
   {/each}
   {#if busy}<div class="msg ai muted">…</div>{/if}
 </div>
-{#if !billing.user}<div class="note warn" style="margin-top:8px">Free — just sign in with Google to use the AI assistant. <a class="primary" style="display:inline-block;margin-top:6px;padding:8px 12px;border-radius:8px;background:var(--green);color:#000;text-decoration:none" href="/auth/google" onclick={() => { try { localStorage.setItem("bge_open_ai", "1"); } catch {} }}>Sign in with Google</a></div>{/if}
-{#if photos.length}<div class="thumbs" style="margin-top:8px">{#each photos as src, k}<button class="thumb" onclick={() => photos.splice(k, 1)} title="Remove"><img {src} alt="" /><span>✕</span></button>{/each}</div>{/if}
+{#if !billing.user}<div class="note warn" style="margin-top:8px">{t("Free — just sign in with Google to use the AI assistant.")} <a class="primary" style="display:inline-block;margin-top:6px;padding:8px 12px;border-radius:8px;background:var(--green);color:#000;text-decoration:none" href="/auth/google" onclick={() => { try { localStorage.setItem("bge_open_ai", "1"); } catch {} }}>{t("Sign in with Google")}</a></div>{/if}
+{#if photos.length}<div class="thumbs" style="margin-top:8px">{#each photos as src, k}<button class="thumb" onclick={() => photos.splice(k, 1)} title={t("Remove")}><img {src} alt="" /><span>✕</span></button>{/each}</div>{/if}
 <div class="row" style="gap:6px;margin-top:8px">
-  <button title="Attach a photo: target, ammo box, rifle, scope" aria-label="Attach photo" onclick={() => fileEl?.click()} disabled={busy || photos.length >= 3}>📷</button>
+  <button title={t("Attach a photo: target, ammo box, rifle, scope")} aria-label={t("Attach photo")} onclick={() => fileEl?.click()} disabled={busy || photos.length >= 3}>📷</button>
   <input bind:this={fileEl} type="file" accept="image/*" multiple onchange={addPhotos} style="display:none" />
-  <input type="text" style="flex:1" bind:value={text} placeholder={photos.length ? "What should I do with it? (optional)" : "e.g. hit 10 cm low at 500 m"} onkeydown={(e) => { if (e.key === "Enter") send(); }} disabled={busy} />
+  <input type="text" style="flex:1" bind:value={text} placeholder={photos.length ? t("What should I do with it? (optional)") : t("e.g. hit 10 cm low at 500 m")} onkeydown={(e) => { if (e.key === "Enter") send(); }} disabled={busy} />
   <button class="primary" onclick={() => send()} disabled={busy || (!text.trim() && !photos.length)}>➤</button>
 </div>
-<div class="muted" style="margin-top:6px;display:flex;justify-content:space-between"><span>AI can be wrong — confirm big changes on paper.{#if remaining != null} · {remaining} left today{/if}</span>{#if lines.length}<button class="small" onclick={reset}>New chat</button>{/if}</div>
+<div class="muted" style="margin-top:6px;display:flex;justify-content:space-between"><span>{t("AI can be wrong — confirm big changes on paper.")}{#if remaining != null} · {t("{n} left today", { n: remaining })}{/if}</span>{#if lines.length}<button class="small" onclick={reset}>{t("New chat")}</button>{/if}</div>
 
 <style>
   .chat { max-height: 50vh; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }

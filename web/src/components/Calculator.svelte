@@ -25,8 +25,12 @@
   const pt = $derived(store.target());
   const quick = $derived(u === "imperial" ? [100, 300, 500, 800, 1000].map((y) => Math.round(y / 1.09361 * 10) / 10) : [100, 300, 500, 800, 1000]);
   const quickLabels = [100, 300, 500, 800, 1000];
-  const wez = $derived(store.wez());
-  const wezRanges = $derived(quick.map((m) => ({ m, r: store.wez(m) })));
+  // Hit probability costs three extra trajectory solves, so it is only computed once the section has been
+  // opened (remembered per device). Keeps the first paint free of work the user may never look at.
+  let wezOpen = $state((() => { try { return localStorage.getItem("bge_wez_open") === "1"; } catch { return false; } })());
+  $effect(() => { try { localStorage.setItem("bge_wez_open", wezOpen ? "1" : "0"); } catch { /* ignore */ } });
+  const wez = $derived(wezOpen ? store.wez() : null);
+  const wezRanges = $derived(wezOpen ? quick.map((m) => ({ m, r: store.wez(m) })) : []);
   const dispRange = $derived(Math.round(rangeFrom(store.cond.targetRangeM, u)));
 
   const elevDir = $derived(pt && pt.dropM < 0 ? t("UP") : t("DOWN"));
@@ -199,7 +203,7 @@
     <div class="sub" style="color:#667;margin-top:6px">{fmtRange(store.cond.targetRangeM, u)} · {t("impacts")} {fmtDrop(Math.abs(pt.dropM), u)} {pt.dropM < 0 ? t("low") : t("high")} · {fmtDrop(Math.abs(pt.windageM), u)} {impactSide}</div>
   </div>
   {#if transonic}<div class="note {transonic.kind}">{transonic.text}</div>{/if}
-  <details style="margin-top:8px">
+  <details style="margin-top:8px" bind:open={wezOpen}>
     <summary>🎯 {t("Hit probability")}{#if wez} · <b style="color:{pColor(wez.p)}">{pct(wez.p)}</b> · {sz(wz.targetWm)}×{sz(wz.targetHm)} · {fmtRange(store.cond.targetRangeM, u)}{/if}</summary>
     {#if wez}
       <div class="chips" style="margin-top:8px">

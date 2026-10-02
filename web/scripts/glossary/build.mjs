@@ -86,7 +86,7 @@ const head = (lang, { title, description, href, type, ld, slug }) => `<!doctype 
 <link rel="stylesheet" href="/blog/blog.css"><link rel="stylesheet" href="/glossary/glossary.css">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/ballistics-b-32.png"><link rel="apple-touch-icon" sizes="180x180" href="/icons/ballistics-b-180.png">
 <script type="application/ld+json">${JSON.stringify(ld)}</script></head><body><a class="skip" href="#content">${L[lang].skip}</a>
-<header><a href="/" class="brand" aria-label="ballistics.ge"><img src="/brand/ballistics-logo.png" alt="ballistics.ge" width="1200" height="520"></a><nav aria-label="Main">${L[lang].nav}</nav></header>`;
+<header><a href="/" class="brand" aria-label="ballistics.ge"><img src="/brand/ballistics-logo-960.webp" srcset="/brand/ballistics-logo-480.webp 480w, /brand/ballistics-logo-960.webp 960w" sizes="(max-width: 480px) 300px, 420px" alt="ballistics.ge" width="1200" height="520"></a><nav aria-label="Main">${L[lang].nav}</nav></header>`;
 const foot = (lang) => `<footer>${L[lang].foot}</footer></body></html>`;
 const org = { "@type": "Organization", name: "ballistics.ge", url: `${SITE}/`, logo: `${SITE}/brand/ballistics-logo.png` };
 

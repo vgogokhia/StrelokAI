@@ -1,6 +1,5 @@
 <script lang="ts">
   /** "Share this rifle and load": link in the URL fragment, QR code, native share sheet, copy. */
-  import qrcode from "qrcode-generator";
   import { store } from "../lib/store.svelte";
   import { encodeShare } from "../lib/share";
   import { t } from "../lib/i18n.svelte";
@@ -13,6 +12,7 @@
 
   async function show() {
     url = await encodeShare($state.snapshot(store.rifle), $state.snapshot(store.ammoSel));
+    const { default: qrcode } = await import("qrcode-generator"); // loaded only when someone shares
     const q = qrcode(0, "L");
     q.addData(url);
     q.make();

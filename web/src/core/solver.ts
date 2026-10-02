@@ -185,7 +185,7 @@ class Solver {
 
   private dragAccel(vRel: number, mach: number): number {
     if (vRel <= 0) return 0;
-    const cd = dragCoefficient(mach, this.table);
+    const cd = this.cdAt(mach);
     if (this.useCdm) {
       const d = this.proj.diameterIn * 0.0254;
       const m = this.massKg();
@@ -246,29 +246,60 @@ class Solver {
     return [vert, horiz];
   }
 
+  /**
+   * Same result as dragCoefficient(mach, this.table), but the search starts at the interval used last time:
+   * Mach changes very little between integration steps, so this is O(1) instead of a scan of the table.
+   * Ties at a table node resolve to the lower interval, exactly like the linear scan.
+   */
+  private cdIdx = 0;
+  private cdAt(mach: number): number {
+    const t = this.table, n = t.length;
+    if (mach <= t[0][0]) return t[0][1];
+    if (mach >= t[n - 1][0]) return t[n - 1][1];
+    let i = Math.min(this.cdIdx, n - 2);
+    while (i > 0 && mach < t[i][0]) i--;
+    while (i < n - 2 && mach > t[i + 1][0]) i++;
+    if (i > 0 && mach === t[i][0]) i--;
+    this.cdIdx = i;
+    const [m0, cd0] = t[i], [m1, cd1] = t[i + 1];
+    const u = (mach - m0) / (m1 - m0);
+    return cd0 + u * (cd1 - cd0);
+  }
+
   // --- integrator ------------------------------------------------------
-  private derivatives(s: State, wx: number, wz: number, gx: number, gy: number): State {
-    const [, , , vx, vy, vz] = s;
+  /** Writes d(state)/dt into `out` (no allocation: this runs four times per RK4 step). */
+  private derivatives(s: ArrayLike<number>, wx: number, wz: number, gx: number, gy: number, out: Float64Array): void {
+    const vx = s[3], vy = s[4], vz = s[5];
     const rx = vx - wx;
     const rz = vz - wz;
     const vRel = Math.sqrt(rx * rx + vy * vy + rz * rz);
     const mach = this.sos > 0 ? vRel / this.sos : 0;
+    out[0] = vx; out[1] = vy; out[2] = vz;
     if (vRel > 0) {
       const a = this.dragAccel(vRel, mach);
-      return [vx, vy, vz, (-a * rx) / vRel + gx, (-a * vy) / vRel + gy, (-a * rz) / vRel];
+      out[3] = (-a * rx) / vRel + gx; out[4] = (-a * vy) / vRel + gy; out[5] = (-a * rz) / vRel;
+    } else {
+      out[3] = gx; out[4] = gy; out[5] = 0;
     }
-    return [vx, vy, vz, gx, gy, 0];
   }
 
+  private k1 = new Float64Array(6); private k2 = new Float64Array(6); private k3 = new Float64Array(6); private k4 = new Float64Array(6);
+  private tmp = new Float64Array(6);
   private rk4(s: State, dt: number, wx: number, wz: number, gx: number, gy: number): State {
-    const k1 = this.derivatives(s, wx, wz, gx, gy);
-    const s2 = s.map((v, i) => v + 0.5 * dt * k1[i]) as State;
-    const k2 = this.derivatives(s2, wx, wz, gx, gy);
-    const s3 = s.map((v, i) => v + 0.5 * dt * k2[i]) as State;
-    const k3 = this.derivatives(s3, wx, wz, gx, gy);
-    const s4 = s.map((v, i) => v + dt * k3[i]) as State;
-    const k4 = this.derivatives(s4, wx, wz, gx, gy);
-    return s.map((v, i) => v + (dt / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i])) as State;
+    const { k1, k2, k3, k4, tmp } = this;
+    this.derivatives(s, wx, wz, gx, gy, k1);
+    for (let i = 0; i < 6; i++) tmp[i] = s[i] + 0.5 * dt * k1[i];
+    this.derivatives(tmp, wx, wz, gx, gy, k2);
+    for (let i = 0; i < 6; i++) tmp[i] = s[i] + 0.5 * dt * k2[i];
+    this.derivatives(tmp, wx, wz, gx, gy, k3);
+    for (let i = 0; i < 6; i++) tmp[i] = s[i] + dt * k3[i];
+    this.derivatives(tmp, wx, wz, gx, gy, k4);
+    const h = dt / 6;
+    return [
+      s[0] + h * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]), s[1] + h * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]),
+      s[2] + h * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]), s[3] + h * (k1[3] + 2 * k2[3] + 2 * k3[3] + k4[3]),
+      s[4] + h * (k1[4] + 2 * k2[4] + 2 * k3[4] + k4[4]), s[5] + h * (k1[5] + 2 * k2[5] + 2 * k3[5] + k4[5]),
+    ];
   }
 
   private integrate(boreAngle: number, maxRangeM: number, stepM: number): TrajectoryPoint[] {

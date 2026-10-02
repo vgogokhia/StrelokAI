@@ -116,7 +116,7 @@
 </script>
 
 <div class="account-bar">
-  <a href="/" class="brand" aria-label="Ballistics.ge home"><img src="/brand/ballistics-logo.png" alt="Ballistics.ge" width="1200" height="520" fetchpriority="high" /></a>
+  <a href="/" class="brand" aria-label="Ballistics.ge home"><img src="/brand/ballistics-logo-960.webp" srcset="/brand/ballistics-logo-480.webp 480w, /brand/ballistics-logo-960.webp 960w" sizes="(max-width: 480px) 300px, 420px" alt="Ballistics.ge" width="1200" height="520" fetchpriority="high" /></a>
   <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="small" onclick={() => setLang(i18n.lang === 'ka' ? 'en' : 'ka')} aria-label={i18n.lang === 'ka' ? 'Switch to English' : 'ქართულზე გადართვა'} title={i18n.lang === 'ka' ? 'English' : 'ქართული'}>{i18n.lang === 'ka' ? 'EN' : 'ქარ'}</button><button class="small" onclick={() => open = !open} aria-expanded={open}>{user ? t('My account') : t('Sign in')}</button></div>
 </div>
 {#if open}

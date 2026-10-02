@@ -8,7 +8,6 @@
   import Account from "../components/Account.svelte";
   import More from "../components/More.svelte";
   import Feedback from "../components/Feedback.svelte";
-  import Assistant from "../components/Assistant.svelte";
   import { installFeedbackFlusher } from "../lib/feedback";
   import { decodeShare, type SharedLoad } from "../lib/share";
   import { billing, FREE_RIFLES, FREE_AMMO } from "../lib/billing.svelte";
@@ -99,7 +98,7 @@
         <h2 style="margin:0">🤖 {t("Assistant")}</h2>
         <button type="button" aria-label={t("Close")} onclick={() => (aiOpen = false)}>✕</button>
       </div>
-      <Assistant />
+      {#await import("../components/Assistant.svelte") then { default: Assistant }}<Assistant />{/await}
     </div>
   </div>
 {/if}

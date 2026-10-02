@@ -235,3 +235,19 @@ test('app shell only at "/"; static sections are real pages or real 404s', async
   }
   assert.equal((await request('/missing.js')).status, 404);
 });
+test('static files: compression, cache policy and ETag revalidation', async t => {
+  const { request } = await setup(t);
+  const html = await request('/glossary/mil-vs-moa/', { headers: { 'Accept-Encoding': 'br, gzip' } });
+  assert.equal(html.status, 200);
+  assert.equal(html.headers.get('content-encoding'), 'br');
+  assert.equal(html.headers.get('cache-control'), 'no-cache');
+  assert.match(await html.text(), /MIL vs MOA/);
+  const again = await request('/glossary/mil-vs-moa/', { headers: { 'If-None-Match': html.headers.get('etag') } });
+  assert.equal(again.status, 304);
+  const gz = await request('/', { headers: { 'Accept-Encoding': 'gzip' } });
+  assert.equal(gz.headers.get('content-encoding'), 'gzip');
+  const logo = await request('/brand/ballistics-logo-960.webp', { headers: { 'Accept-Encoding': 'br' } });
+  assert.equal(logo.headers.get('content-type'), 'image/webp');
+  assert.equal(logo.headers.get('content-encoding'), null);
+  assert.match(logo.headers.get('cache-control'), /max-age=604800/);
+});

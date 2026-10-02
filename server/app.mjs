@@ -3,6 +3,7 @@ import { ADAPTERS, VENDORS, listModels } from './providers.mjs';
 import { randomBytes, createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { readFile, stat } from 'node:fs/promises';
+import { brotliCompressSync, gzipSync, constants as zlibConstants } from 'node:zlib';
 import { resolve, extname, sep } from 'node:path';
 import { OAuth2Client } from 'google-auth-library';
 
@@ -142,6 +143,29 @@ const ASSISTANT_TOOLS = [
     group_moa: num('5-shot group at 100'), mv_sd_mps: num(''), wind_error_mps: num('wind-call uncertainty 1σ'), range_error_pct: num(''), target_width_cm: num(''), target_height_cm: num(''),
     shape: { type: 'string', enum: ['rect', 'ellipse'] } } } },
 ];
+
+// Static files: content types, cache policy and an in-memory cache of compressed bodies (keyed by path+mtime).
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.txt': 'text/plain', '.xml': 'application/xml', '.woff2': 'font/woff2' };
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.json', '.webmanifest', '.svg', '.txt', '.xml']);
+const LONG_LIVED = new Set(['.png', '.webp', '.jpg', '.ico', '.woff2']);
+const bodies = new Map();
+function cacheControl(file, ext) {
+  if (file.includes(`${sep}assets${sep}`)) return 'public,max-age=31536000,immutable'; // hashed build output
+  if (LONG_LIVED.has(ext)) return 'public,max-age=604800,stale-while-revalidate=86400'; // logo, icons, share images
+  return 'no-cache'; // HTML, sw.js, manifest, sitemap: revalidate with the ETag every time
+}
+async function staticBody(file, ext, mtimeMs, acceptEncoding) {
+  const enc = !COMPRESSIBLE.has(ext) ? null : /\bbr\b/.test(acceptEncoding) ? 'br' : /\bgzip\b/.test(acceptEncoding) ? 'gzip' : null;
+  const key = `${file}|${mtimeMs}|${enc}`;
+  let body = bodies.get(key);
+  if (!body) {
+    const raw = await readFile(file);
+    body = enc === 'br' ? brotliCompressSync(raw, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 9 } }) : enc === 'gzip' ? gzipSync(raw, { level: 9 }) : raw;
+    if (bodies.size > 2000) bodies.clear();
+    bodies.set(key, body);
+  }
+  return { body, enc };
+}
 
 const notFoundHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Page not found | ballistics.ge</title><link rel="stylesheet" href="/blog/blog.css"></head><body><main><h1>Page not found</h1><p>This page does not exist. გვერდი ვერ მოიძებნა.</p><ul><li><a href="/">Ballistic calculator</a></li><li><a href="/ballistics/">Ballistics charts</a></li><li><a href="/glossary/">Glossary</a></li></ul></main></body></html>`;
 
@@ -374,12 +398,13 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
       if (file !== root && !file.startsWith(root + sep)) return json(404, { error: 'not_found' });
       // The app itself lives only at "/". Static sections (blog, glossary, charts, legal pages) are real files;
       // anything else is a genuine 404, never the app shell (which search engines treat as a soft 404).
+      let info;
       try {
         if ((await stat(file)).isDirectory()) {
           if (!url.pathname.endsWith('/')) { res.writeHead(301, { Location: url.pathname + '/' + url.search }); return res.end(); }
           file = resolve(file, 'index.html');
         }
-        await stat(file);
+        info = await stat(file);
       } catch {
         if (url.pathname !== '/' || extname(file)) {
           if (extname(file) && extname(file) !== '.html') return json(404, { error: 'not_found' });
@@ -387,10 +412,17 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
           return res.end(notFoundHtml);
         }
         file = resolve(root, 'index.html');
+        info = await stat(file);
       }
-      const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain', '.xml': 'application/xml', '.woff2': 'font/woff2' };
-      res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': file.includes(`${sep}assets${sep}`) ? 'public,max-age=31536000,immutable' : 'no-cache' });
-      res.end(req.method === 'HEAD' ? undefined : await readFile(file));
+      const ext = extname(file);
+      const etag = `W/"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`;
+      const headers = { 'Content-Type': TYPES[ext] || 'application/octet-stream', 'Cache-Control': cacheControl(file, ext), ETag: etag, Vary: 'Accept-Encoding' };
+      if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
+      const { body, enc } = await staticBody(file, ext, info.mtimeMs, String(req.headers['accept-encoding'] || ''));
+      if (enc) headers['Content-Encoding'] = enc;
+      headers['Content-Length'] = body.length;
+      res.writeHead(200, headers);
+      res.end(req.method === 'HEAD' ? undefined : body);
     } catch { if (!res.headersSent) json(500, { error: 'server_error' }); else res.end(); }
   });
 }

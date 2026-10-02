@@ -326,4 +326,9 @@ export const KA: Record<string, string> = {
   "Shared rifle and load": "გაზიარებული შაშხანა და ვაზნა",
   "Add this rifle and load to your profiles? Your existing profiles are not changed.": "დავამატოთ ეს შაშხანა და ვაზნა თქვენს პროფილებს? არსებული პროფილები არ შეიცვლება.",
   "Add to my profiles": "ჩემს პროფილებში დამატება",
+  "decrease": "შემცირება",
+  "increase": "გაზრდა",
+  "Bullet library": "ტყვიების ბიბლიოთეკა",
+  "Message": "შეტყობინება",
+  "Message to the assistant": "შეტყობინება ასისტენტს",
 };

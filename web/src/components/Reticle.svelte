@@ -29,10 +29,10 @@
 <div class="muted" style="margin:-6px 0 10px">{t("Red dot = the reticle mark to put on the target.")}</div>
 <div class="card">
   <div class="grid2">
-    <div><label class="f">{t("Reticle")}</label>
-      <select bind:value={s.reticle}>{#each RETICLES as r}<option value={r.name}>{r.name}</option>{/each}</select></div>
-    <div><label class="f">{t("Focal plane")}</label>
-      <div class="seg"><button class:on={s.reticleFp === "FFP"} onclick={() => (s.reticleFp = "FFP")}>FFP</button><button class:on={s.reticleFp === "SFP"} onclick={() => (s.reticleFp = "SFP")}>SFP</button></div></div>
+    <div><label class="f" for="reticle-select">{t("Reticle")}</label>
+      <select id="reticle-select" bind:value={s.reticle}>{#each RETICLES as r}<option value={r.name}>{r.name}</option>{/each}</select></div>
+    <div><span class="f" id="lbl-fp">{t("Focal plane")}</span>
+      <div class="seg" role="group" aria-labelledby="lbl-fp"><button class:on={s.reticleFp === "FFP"} onclick={() => (s.reticleFp = "FFP")}>FFP</button><button class:on={s.reticleFp === "SFP"} onclick={() => (s.reticleFp = "SFP")}>SFP</button></div></div>
     {#if s.reticleFp === "SFP"}
       <Num label={t("Scope zoom range: min (×)")} value={s.scopeMinMag ?? 3} step={0.5} min={1} max={50} onchange={(v) => (s.scopeMinMag = v)} />
       <Num label={t("max (×)")} value={s.scopeMaxMag ?? 15} step={0.5} min={1} max={60} onchange={(v) => (s.scopeMaxMag = v)} />

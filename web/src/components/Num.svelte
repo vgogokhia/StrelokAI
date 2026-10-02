@@ -16,6 +16,8 @@
     digits?: number;
   }
   let { label, value, onchange, from = (v) => v, to = (v) => v, step = 1, min, max, digits = 1 }: Props = $props();
+  import { t } from "../lib/i18n.svelte";
+  const id = $props.id();
   let text = $state("");
   let focused = $state(false);
   const shown = $derived(Number(from(value).toFixed(digits)));
@@ -41,12 +43,12 @@
 </script>
 
 <div>
-  <label class="f">{label}</label>
+  <label class="f" for={id}>{label}</label>
   <div class="row" style="gap:4px;flex-wrap:nowrap">
-    <button class="small" style="min-width:40px" onclick={() => bump(-1)} aria-label="decrease">−</button>
-    <input type="number" inputmode="decimal" style="flex:1;min-width:0;padding-left:6px;padding-right:2px" {step} bind:value={text}
+    <button class="small" style="min-width:40px" onclick={() => bump(-1)} aria-label={`${t("decrease")}: ${label}`}>−</button>
+    <input {id} type="number" inputmode="decimal" style="flex:1;min-width:0;padding-left:6px;padding-right:2px" {step} bind:value={text}
       onfocus={() => (focused = true)} onblur={() => { focused = false; commit(); }}
       onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
-    <button class="small" style="min-width:40px" onclick={() => bump(1)} aria-label="increase">+</button>
+    <button class="small" style="min-width:40px" onclick={() => bump(1)} aria-label={`${t("increase")}: ${label}`}>+</button>
   </div>
 </div>

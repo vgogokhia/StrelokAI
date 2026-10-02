@@ -47,21 +47,21 @@
 <h2>🔫 {t("Rifle")}</h2>
 <div class="card">
   <div class="row">
-    <select style="flex:1" value={store.rifleId} onchange={(e) => (store.rifleId = (e.target as HTMLSelectElement).value)}>
+    <select style="flex:1" aria-label={t("Rifle")} value={store.rifleId} onchange={(e) => (store.rifleId = (e.target as HTMLSelectElement).value)}>
       {#each store.rifles as r}<option value={r.id}>{r.name}</option>{/each}
     </select>
     <button class="small" title={rifleLocked ? t("Free plan: {n} rifle. Upgrade to Pro in My account.", { n: FREE_RIFLES }) : t("Add rifle")} onclick={() => rifleLocked ? alert(t("Free plan is limited to {n} rifle. Upgrade to Pro ($5 one-time) in My account for unlimited profiles.", { n: FREE_RIFLES })) : store.addRifle({ ...defaultRifle(), name: `${t("Rifle")} ${store.rifles.length + 1}` })}>{rifleLocked ? "🔒" : "＋"}</button>
     <button class="small" disabled={store.rifles.length < 2} onclick={() => store.deleteRifle(rifle.id)}>🗑</button>
   </div>
   <div class="grid2" style="margin-top:8px">
-    <div><label class="f">{t("Name")}</label><input type="text" bind:value={rifle.name} /></div>
-    <div><label class="f">{t("Chambering")}</label>
-      <select bind:value={rifle.chambering}>{#each CHAMBERING_NAMES as c}<option>{c}</option>{/each}</select></div>
+    <div><label class="f" for="rifle-name">{t("Name")}</label><input id="rifle-name" type="text" bind:value={rifle.name} /></div>
+    <div><label class="f" for="rifle-chambering">{t("Chambering")}</label>
+      <select id="rifle-chambering" bind:value={rifle.chambering}>{#each CHAMBERING_NAMES as c}<option>{c}</option>{/each}</select></div>
     <Num label={`${t("Zero range")} (${rangeLabel(u)})`} value={rifle.zeroRangeM} from={(v) => rangeFrom(v, u)} to={(v) => rangeTo(v, u)} step={25} min={10} max={600} digits={0} onchange={(v) => (rifle.zeroRangeM = v)} />
     <Num label={`${t("Sight height")} (${sightLabel(u)})`} value={rifle.sightHeightMm} from={(v) => sightFrom(v, u)} to={(v) => sightTo(v, u)} step={u === "imperial" ? 0.05 : 1} digits={u === "imperial" ? 2 : 0} min={0} onchange={(v) => (rifle.sightHeightMm = v)} />
     <Num label={t("Twist 1:X (in)")} value={rifle.twistRateIn} step={0.25} min={4} max={30} digits={2} onchange={(v) => (rifle.twistRateIn = v)} />
-    <div><label class="f">{t("Twist direction")}</label>
-      <div class="seg"><button class:on={rifle.twistDirection === "right"} onclick={() => (rifle.twistDirection = "right")}>{t("Right")}</button><button class:on={rifle.twistDirection === "left"} onclick={() => (rifle.twistDirection = "left")}>{t("Left")}</button></div></div>
+    <div><span class="f" id="lbl-twist">{t("Twist direction")}</span>
+      <div class="seg" role="group" aria-labelledby="lbl-twist"><button class:on={rifle.twistDirection === "right"} onclick={() => (rifle.twistDirection = "right")}>{t("Right")}</button><button class:on={rifle.twistDirection === "left"} onclick={() => (rifle.twistDirection = "left")}>{t("Left")}</button></div></div>
   </div>
   <details>
     <summary>⚙ {t("Advanced zero")}</summary>
@@ -84,7 +84,7 @@
 <h2><img class="brand-icon" src="/icons/ballistics-b-192.png" alt="" width="24" height="24" /> {t("Ammo")}</h2>
 <div class="card">
   <div class="row">
-    <select style="flex:1" value={store.ammoId} onchange={(e) => (store.ammoId = (e.target as HTMLSelectElement).value)}>
+    <select style="flex:1" aria-label={t("Ammo")} value={store.ammoId} onchange={(e) => (store.ammoId = (e.target as HTMLSelectElement).value)}>
       {#each store.ammo as a}<option value={a.id}>{a.name}{isCompatible(rifle.chambering, a.diameterIn, a.cartridge) ? "" : " ⚠"}</option>{/each}
     </select>
     <button class="small" title={ammoLocked ? t("Free plan: {n} loads. Upgrade to Pro in My account.", { n: FREE_AMMO }) : t("Add load")} onclick={() => ammoLocked ? alert(t("Free plan is limited to {n} loads. Upgrade to Pro ($5 one-time) in My account for unlimited profiles.", { n: FREE_AMMO })) : store.addAmmo({ ...defaultAmmo(), name: `${t("Ammo")} ${store.ammo.length + 1}`, cartridge: rifle.chambering })}>{ammoLocked ? "🔒" : "＋"}</button>
@@ -94,10 +94,10 @@
 
   {#if hasFeature("library")}
     <div style="margin-top:8px">
-      <label class="f">📚 {t("Bullet library ({n} that fit this rifle)", { n: fitting.length })}</label>
-      <input type="text" placeholder={t("search: Lapua, 175, subsonic…")} bind:value={filter} />
+      <label class="f" for="lib-search">📚 {t("Bullet library ({n} that fit this rifle)", { n: fitting.length })}</label>
+      <input id="lib-search" type="text" placeholder={t("search: Lapua, 175, subsonic…")} bind:value={filter} />
       <div class="row" style="margin-top:6px">
-        <select style="flex:1" bind:value={preset}>
+        <select style="flex:1" aria-label={t("Bullet library")} bind:value={preset}>
           <option value="">— {t("pick")} —</option>
           {#each shown as b}<option value={b.id}>{label(b)}</option>{/each}
         </select>
@@ -107,11 +107,11 @@
   {/if}
 
   <div class="grid2" style="margin-top:8px">
-    <div><label class="f">{t("Name")}</label><input type="text" bind:value={ammo.name} /></div>
-    <div><label class="f">{t("Cartridge")}</label>
-      <select bind:value={ammo.cartridge}>{#each CHAMBERING_NAMES as c}<option>{c}</option>{/each}</select></div>
-    <div><label class="f">{t("Drag model")}</label>
-      <div class="seg"><button class:on={ammo.dragModel === "G1"} onclick={() => (ammo.dragModel = "G1")}>G1</button><button class:on={ammo.dragModel === "G7"} onclick={() => (ammo.dragModel = "G7")}>G7</button></div></div>
+    <div><label class="f" for="ammo-name">{t("Name")}</label><input id="ammo-name" type="text" bind:value={ammo.name} /></div>
+    <div><label class="f" for="ammo-cartridge">{t("Cartridge")}</label>
+      <select id="ammo-cartridge" bind:value={ammo.cartridge}>{#each CHAMBERING_NAMES as c}<option>{c}</option>{/each}</select></div>
+    <div><span class="f" id="lbl-drag">{t("Drag model")}</span>
+      <div class="seg" role="group" aria-labelledby="lbl-drag"><button class:on={ammo.dragModel === "G1"} onclick={() => (ammo.dragModel = "G1")}>G1</button><button class:on={ammo.dragModel === "G7"} onclick={() => (ammo.dragModel = "G7")}>G7</button></div></div>
     <Num label={`BC (${ammo.dragModel})`} value={ammo.bc} step={0.001} min={0.05} max={1.5} digits={3} onchange={(v) => (ammo.bc = v)} />
     <Num label={t("Weight (gr)")} value={ammo.massGrains} step={1} min={10} max={800} digits={1} onchange={(v) => (ammo.massGrains = v)} />
     <Num label={t("Diameter (in)")} value={ammo.diameterIn} step={0.001} min={0.17} max={0.51} digits={4} onchange={(v) => (ammo.diameterIn = v)} />

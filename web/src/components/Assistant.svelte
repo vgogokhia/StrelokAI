@@ -106,9 +106,9 @@
 {#if photos.length}<div class="thumbs" style="margin-top:8px">{#each photos as src, k}<button class="thumb" onclick={() => photos.splice(k, 1)} title={t("Remove")}><img {src} alt="" /><span>✕</span></button>{/each}</div>{/if}
 <div class="row" style="gap:6px;margin-top:8px">
   <button title={t("Attach a photo: target, ammo box, rifle, scope")} aria-label={t("Attach photo")} onclick={() => fileEl?.click()} disabled={busy || photos.length >= 3}>📷</button>
-  <input bind:this={fileEl} type="file" accept="image/*" multiple onchange={addPhotos} style="display:none" />
-  <input type="text" style="flex:1" bind:value={text} placeholder={photos.length ? t("What should I do with it? (optional)") : t("e.g. hit 10 cm low at 500 m")} onkeydown={(e) => { if (e.key === "Enter") send(); }} disabled={busy} />
-  <button class="primary" onclick={() => send()} disabled={busy || (!text.trim() && !photos.length)}>➤</button>
+  <input bind:this={fileEl} aria-label={t("Attach photo")} type="file" accept="image/*" multiple onchange={addPhotos} style="display:none" />
+  <input type="text" style="flex:1" aria-label={t("Message to the assistant")} bind:value={text} placeholder={photos.length ? t("What should I do with it? (optional)") : t("e.g. hit 10 cm low at 500 m")} onkeydown={(e) => { if (e.key === "Enter") send(); }} disabled={busy} />
+  <button class="primary" onclick={() => send()} aria-label={t("Send")} disabled={busy || (!text.trim() && !photos.length)}>➤</button>
 </div>
 <div class="muted" style="margin-top:6px;display:flex;justify-content:space-between"><span>{t("AI can be wrong — confirm big changes on paper.")}{#if remaining != null} · {t("{n} left today", { n: remaining })}{/if}</span>{#if lines.length}<button class="small" onclick={reset}>{t("New chat")}</button>{/if}</div>
 

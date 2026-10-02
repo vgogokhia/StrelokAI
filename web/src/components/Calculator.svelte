@@ -170,7 +170,7 @@
       <Num label={`${t("Distance")} (${rangeLabel(u)})`} value={store.cond.targetRangeM} from={(m) => rangeFrom(m, u)} to={(v) => rangeTo(v, u)} step={5} min={10} max={3000} digits={0} onchange={(m) => store.setRange(m)} />
     </div>
   </div>
-  <input type="range" min={u === "imperial" ? 50 : 50} max={u === "imperial" ? 2200 : 2000} step="5" value={dispRange}
+  <input type="range" aria-label={t("Distance")} min={u === "imperial" ? 50 : 50} max={u === "imperial" ? 2200 : 2000} step="5" value={dispRange}
     oninput={(e) => store.setRange(rangeTo(+(e.target as HTMLInputElement).value, u))} />
   <div class="chips">
     {#each quick as m, i}
@@ -230,7 +230,7 @@
     <Num label={t("Wind from (° true)")} value={store.cond.windDirDeg} step={15} min={0} max={360} digits={0} onchange={(v) => (store.cond.windDirDeg = ((v % 360) + 360) % 360)} />
     <Num label={t("Shooting direction (°)")} value={store.cond.headingDeg} step={5} min={0} max={359} digits={0} onchange={(v) => (store.cond.headingDeg = ((v % 360) + 360) % 360)} />
     <div>
-      <label class="f">{t("Phone compass / level")}</label>
+      <span class="f">{t("Phone compass / level")}</span>
       {#if !sensorsOn}
         <button style="width:100%" onclick={startSensors}>🧭 {t("Enable sensors")}</button>
       {:else}
@@ -253,8 +253,8 @@
     <summary>{t("Moving target")} {store.cond.targetSpeedKmh > 0 ? `· ${u === "imperial" ? Math.round(store.cond.targetSpeedKmh * 0.621371) + " mph" : store.cond.targetSpeedKmh + " km/h"}` : `· ${t("stationary")}`}</summary>
     <div class="grid2" style="margin-top:8px">
       <Num label={`${t("Target speed")} (${u === "imperial" ? "mph" : "km/h"})`} value={store.cond.targetSpeedKmh} from={(k) => u === "imperial" ? k * 0.621371 : k} to={(v) => u === "imperial" ? v / 0.621371 : v} step={1} min={0} max={120} digits={0} onchange={(v) => (store.cond.targetSpeedKmh = v)} />
-      <div><label class="f">{t("Moving")}</label>
-        <div class="seg"><button class:on={store.cond.targetDirDeg === 270} onclick={() => (store.cond.targetDirDeg = 270)}>← {t("R to L")}</button><button class:on={store.cond.targetDirDeg === 90} onclick={() => (store.cond.targetDirDeg = 90)}>{t("L to R")} →</button></div></div>
+      <div><span class="f" id="lbl-moving">{t("Moving")}</span>
+        <div class="seg" role="group" aria-labelledby="lbl-moving"><button class:on={store.cond.targetDirDeg === 270} onclick={() => (store.cond.targetDirDeg = 270)}>← {t("R to L")}</button><button class:on={store.cond.targetDirDeg === 90} onclick={() => (store.cond.targetDirDeg = 90)}>{t("L to R")} →</button></div></div>
     </div>
     <div class="chips" style="margin-top:6px">
       {#each [["walking", 5], ["trotting", 12], ["running deer", 35], ["boar", 40]] as [l, k]}<button class:active={store.cond.targetSpeedKmh === k} onclick={() => (store.cond.targetSpeedKmh = k as number)}>{t(l as string)}</button>{/each}

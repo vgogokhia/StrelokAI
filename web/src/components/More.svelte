@@ -23,14 +23,14 @@
 <h2>⚙️ {t("Settings")}</h2>
 <div class="card">
   <div class="grid2">
-    <div style="grid-column:1/3"><label class="f">{t("Language")} / ენა</label>
-      <div class="seg"><button class:on={i18n.lang === "en"} onclick={() => setLang("en")}>English</button><button class:on={i18n.lang === "ka"} onclick={() => setLang("ka")}>ქართული</button></div></div>
-    <div><label class="f">{t("Units")}</label>
-      <div class="seg"><button class:on={s.units === "metric"} onclick={() => (s.units = "metric")}>{t("Metric")}</button><button class:on={s.units === "imperial"} onclick={() => (s.units = "imperial")}>{t("Imperial")}</button></div></div>
-    <div><label class="f">{t("Angular")}</label>
-      <div class="seg"><button class:on={s.angular === "MRAD"} onclick={() => { s.angular = "MRAD"; if (!s.click.includes("MRAD") && !s.click.includes("cm")) s.click = "0.1 MRAD"; }}>MRAD</button><button class:on={s.angular === "MOA"} onclick={() => { s.angular = "MOA"; if (!s.click.includes("MOA")) s.click = "1/4 MOA"; }}>MOA</button></div></div>
-    <div style="grid-column:1/3"><label class="f">{t("Scope click value")}</label>
-      <select bind:value={s.click}>{#each Object.keys(CLICK_OPTIONS) as c}<option>{c}</option>{/each}</select></div>
+    <div style="grid-column:1/3"><span class="f" id="lbl-lang">{t("Language")} / ენა</span>
+      <div class="seg" role="group" aria-labelledby="lbl-lang"><button class:on={i18n.lang === "en"} onclick={() => setLang("en")}>English</button><button class:on={i18n.lang === "ka"} onclick={() => setLang("ka")}>ქართული</button></div></div>
+    <div><span class="f" id="lbl-units">{t("Units")}</span>
+      <div class="seg" role="group" aria-labelledby="lbl-units"><button class:on={s.units === "metric"} onclick={() => (s.units = "metric")}>{t("Metric")}</button><button class:on={s.units === "imperial"} onclick={() => (s.units = "imperial")}>{t("Imperial")}</button></div></div>
+    <div><span class="f" id="lbl-angular">{t("Angular")}</span>
+      <div class="seg" role="group" aria-labelledby="lbl-angular"><button class:on={s.angular === "MRAD"} onclick={() => { s.angular = "MRAD"; if (!s.click.includes("MRAD") && !s.click.includes("cm")) s.click = "0.1 MRAD"; }}>MRAD</button><button class:on={s.angular === "MOA"} onclick={() => { s.angular = "MOA"; if (!s.click.includes("MOA")) s.click = "1/4 MOA"; }}>MOA</button></div></div>
+    <div style="grid-column:1/3"><label class="f" for="click-value">{t("Scope click value")}</label>
+      <select id="click-value" bind:value={s.click}>{#each Object.keys(CLICK_OPTIONS) as c}<option>{c}</option>{/each}</select></div>
   </div>
 </div>
 

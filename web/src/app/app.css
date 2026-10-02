@@ -22,12 +22,12 @@ main { max-width: 640px; margin: 0 auto; padding: 12px 12px 8px; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-label.f { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 2px; }
+.f { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 2px; }
 input[type="number"], input[type="text"], select {
   width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
   padding: 10px 10px; font-size: 1rem; min-height: 44px;
 }
-input[type="range"] { width: 100%; accent-color: var(--green); }
+input[type="range"] { width: 100%; accent-color: var(--green); height: 36px; margin: 6px 0; touch-action: pan-y; }
 button, .btn { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.95rem; min-height: 44px; cursor: pointer; }
 button.primary { background: var(--green); color: #000; border-color: var(--green); font-weight: 600; }
 button.active { border-color: var(--green); color: var(--green); }

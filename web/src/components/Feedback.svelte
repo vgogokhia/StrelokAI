@@ -45,14 +45,14 @@
 <div class="seg" style="margin-bottom:8px">
   {#each KINDS as k}<button class:on={kind === k} onclick={() => (kind = k)}>{t(k)}</button>{/each}
 </div>
-<textarea bind:value={msg} rows="4" maxlength="4000"
+<textarea aria-label={t("Message")} bind:value={msg} rows="4" maxlength="4000"
   placeholder={kind.includes("Bug") ? t("What happened, what you expected, which load/range…") : kind.includes("Feature") ? t("What should the app do, and why would it help you?") : t("Write here…")}
   style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font:inherit"></textarea>
 <div class="grid2" style="margin-top:8px">
-  <div><label class="f">{t("Contact (optional)")}</label><input type="text" bind:value={contact} placeholder={t("email / Facebook / phone")} /></div>
-  <div><label class="f">{t("Screenshot")}</label>
+  <div><label class="f" for="fb-contact">{t("Contact (optional)")}</label><input id="fb-contact" type="text" bind:value={contact} placeholder={t("email / Facebook / phone")} /></div>
+  <div><span class="f">{t("Screenshot")}</span>
     <button type="button" style="width:100%" onclick={() => fileEl?.click()}>📷 {shot ? t("Change") : t("Attach")}</button>
-    <input bind:this={fileEl} type="file" accept="image/*" onchange={pickShot} style="display:none" />
+    <input bind:this={fileEl} aria-label={t("Screenshot")} type="file" accept="image/*" onchange={pickShot} style="display:none" />
   </div>
 </div>
 {#if shot}

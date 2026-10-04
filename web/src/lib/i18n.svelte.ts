@@ -15,10 +15,22 @@ export const LANGS: Array<{ code: Lang; label: string; short: string }> = [
   { code: "fr", label: "Français", short: "FR" },
 ];
 
+const isLang = (v: unknown): v is Lang => v === "en" || v === "ka" || v === "fr";
+
 function initial(): Lang {
+  // A link like ballistics.ge/fr (redirected to /?lang=fr) or /?lang=fr picks the language and remembers it.
+  try {
+    const q = new URLSearchParams(location.search);
+    const wanted = q.get("lang")?.toLowerCase();
+    if (q.has("lang")) {
+      q.delete("lang");
+      history.replaceState(null, "", location.pathname + (q.size ? `?${q}` : "") + location.hash);
+    }
+    if (isLang(wanted)) { try { localStorage.setItem("bge_lang", wanted); } catch { /* ignore */ } return wanted; }
+  } catch { /* no window */ }
   try {
     const saved = localStorage.getItem("bge_lang");
-    if (saved === "en" || saved === "ka" || saved === "fr") return saved;
+    if (isLang(saved)) return saved;
   } catch { /* storage blocked */ }
   const nav = (navigator.languages ?? [navigator.language]).map((l) => l?.toLowerCase() ?? "");
   if (nav.some((l) => l.startsWith("ka"))) return "ka";

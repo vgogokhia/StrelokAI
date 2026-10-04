@@ -1,16 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
 import { KA } from "../src/lib/i18n-ka";
 import { FR } from "../src/lib/i18n-fr";
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 /** Every literal t("...") / t('...') key used by the app shell and components. */
 function usedKeys(): string[] {
-  const dir = new URL("../src/components/", import.meta.url);
-  const files = [new URL("../src/app/App.svelte", import.meta.url), ...readdirSync(dir).map((f) => new URL(f, dir))];
+  const sources = import.meta.glob(["../src/components/*.svelte", "../src/app/App.svelte"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
   const keys = new Set<string>();
-  for (const f of files) {
-    const src = readFileSync(f, "utf8");
+  for (const src of Object.values(sources)) {
     for (const m of src.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/g)) keys.add(JSON.parse(`"${m[1]}"`));
     for (const m of src.matchAll(/\bt\(\s*'((?:[^'\\]|\\.)*)'/g)) keys.add(m[1].replace(/\\'/g, "'"));
   }

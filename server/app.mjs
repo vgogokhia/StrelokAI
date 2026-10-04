@@ -393,6 +393,13 @@ export function app({ db, origin, clientId, clientSecret, webRoot, adminEmails =
       if (url.pathname.startsWith('/auth/')) return json(404, { error: 'not_found' });
       if (!['GET', 'HEAD'].includes(req.method)) return json(405, { error: 'method' });
       if (url.pathname === '/healthz') return json(200, { ok: true });
+      // Language short links: ballistics.ge/fr, /ka, /en open the app in that language (the fragment, e.g. a
+      // shared profile #p=..., is kept by the browser across the redirect; other query parameters are kept here).
+      const short = /^\/(en|ka|fr)\/?$/.exec(url.pathname);
+      if (short) {
+        const q = new URLSearchParams(url.search); q.set('lang', short[1]);
+        res.writeHead(302, { Location: `/?${q}`, 'Cache-Control': 'no-store' }); return res.end();
+      }
       if (url.pathname === '/admin') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(adminHtml); }
       let file = resolve(root, '.' + decodeURIComponent(url.pathname));
       if (file !== root && !file.startsWith(root + sep)) return json(404, { error: 'not_found' });

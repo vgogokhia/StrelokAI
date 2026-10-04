@@ -251,3 +251,13 @@ test('static files: compression, cache policy and ETag revalidation', async t =>
   assert.equal(logo.headers.get('content-encoding'), null);
   assert.match(logo.headers.get('cache-control'), /max-age=604800/);
 });
+test('language short links redirect to the app with ?lang', async t => {
+  const { request } = await setup(t);
+  for (const [path, loc] of [['/fr', '/?lang=fr'], ['/ka/', '/?lang=ka'], ['/en', '/?lang=en'], ['/fr?ai=1', '/?ai=1&lang=fr']]) {
+    const r = await request(path);
+    assert.equal(r.status, 302, path);
+    assert.equal(r.headers.get('location'), loc, path);
+  }
+  assert.equal((await request('/ka/glossary/')).status, 200);
+  assert.equal((await request('/de')).status, 404);
+});

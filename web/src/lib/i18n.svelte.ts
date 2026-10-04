@@ -40,7 +40,7 @@ function initial(): Lang {
 }
 
 export const i18n = $state({ lang: initial() });
-if (typeof document !== "undefined") document.documentElement.lang = i18n.lang;
+if (typeof document !== "undefined") { document.documentElement.lang = i18n.lang; document.documentElement.setAttribute("translate", "no"); }
 
 export function setLang(lang: Lang) {
   i18n.lang = lang;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, i18n, setLang } from "../lib/i18n.svelte";
+  import { t, i18n, setLang, LANGS } from "../lib/i18n.svelte";
   import { store } from "../lib/store.svelte";
   import Num from "./Num.svelte";
   import { CLICK_OPTIONS } from "../lib/units";
@@ -23,8 +23,8 @@
 <h2>⚙️ {t("Settings")}</h2>
 <div class="card">
   <div class="grid2">
-    <div style="grid-column:1/3"><span class="f" id="lbl-lang">{t("Language")} / ენა</span>
-      <div class="seg" role="group" aria-labelledby="lbl-lang"><button class:on={i18n.lang === "en"} onclick={() => setLang("en")}>English</button><button class:on={i18n.lang === "ka"} onclick={() => setLang("ka")}>ქართული</button></div></div>
+    <div style="grid-column:1/3"><span class="f" id="lbl-lang">{t("Language")} · Language · ენა</span>
+      <div class="seg" role="group" aria-labelledby="lbl-lang">{#each LANGS as l}<button class:on={i18n.lang === l.code} lang={l.code} onclick={() => setLang(l.code)}>{l.label}</button>{/each}</div></div>
     <div><span class="f" id="lbl-units">{t("Units")}</span>
       <div class="seg" role="group" aria-labelledby="lbl-units"><button class:on={s.units === "metric"} onclick={() => (s.units = "metric")}>{t("Metric")}</button><button class:on={s.units === "imperial"} onclick={() => (s.units = "imperial")}>{t("Imperial")}</button></div></div>
     <div><span class="f" id="lbl-angular">{t("Angular")}</span>

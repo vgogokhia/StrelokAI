@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { t, i18n, setLang } from '../lib/i18n.svelte';
+  import { t, i18n, setLang, LANGS, type Lang } from '../lib/i18n.svelte';
   import { store } from '../lib/store.svelte';
   import { emptyProfiles, mergeProfiles, type ProfileData } from '../lib/profile-sync';
   import { billing, openCheckout, PRO_PRICE } from '../lib/billing.svelte';
@@ -117,7 +117,7 @@
 
 <div class="account-bar">
   <a href="/" class="brand" aria-label="Ballistics.ge home"><img src="/brand/ballistics-logo-960.webp" srcset="/brand/ballistics-logo-480.webp 480w, /brand/ballistics-logo-960.webp 960w" sizes="(max-width: 480px) 300px, 420px" alt="Ballistics.ge" width="1200" height="520" fetchpriority="high" /></a>
-  <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="small" onclick={() => setLang(i18n.lang === 'ka' ? 'en' : 'ka')} aria-label={i18n.lang === 'ka' ? 'Switch to English' : 'ქართულზე გადართვა'} title={i18n.lang === 'ka' ? 'English' : 'ქართული'}>{i18n.lang === 'ka' ? 'EN' : 'ქარ'}</button><button class="small" onclick={() => open = !open} aria-expanded={open}>{user ? t('My account') : t('Sign in')}</button></div>
+  <div class="row" style="gap:6px;flex-wrap:nowrap"><select class="lang" value={i18n.lang} onchange={(e) => setLang((e.target as HTMLSelectElement).value as Lang)} aria-label="Language / ენა / Langue">{#each LANGS as l}<option value={l.code}>{l.short}</option>{/each}</select><button class="small" onclick={() => open = !open} aria-expanded={open}>{user ? t('My account') : t('Sign in')}</button></div>
 </div>
 {#if open}
   <section class="card" aria-label={t('Account')}>
@@ -146,6 +146,7 @@
   .brand { display: block; position: relative; flex: 0 1 350px; min-width: 0; aspect-ratio: 3.2; overflow: hidden; }
   .brand img { position: absolute; width: 120%; max-width: none; height: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); }
   .account-bar > button { flex-shrink: 0; }
+  .lang { width: auto; min-height: 36px; padding: 6px 8px; font-size: 0.85rem; }
   .google { display: inline-flex; align-items: center; text-decoration: none; background: white; color: #1f1f1f; }
   p { overflow-wrap: anywhere; }
 </style>
